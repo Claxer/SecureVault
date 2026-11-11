@@ -2,7 +2,7 @@
 
 SecureVault is a Java-based Password & Credential Manager designed to provide a centralized way to organize and protect account credentials. Built with **Java 25, Java Swing, SQLite, and Maven**, the project focuses on secure data storage, encryption, and credential organization through a modern dark-themed desktop application.
 
-The project is currently under active development, with its core structure and initial components being implemented.
+The project is currently under active development, with its core functionality and desktop interface being developed and expanded gradually.
 
 ## Implemented Features
 
@@ -17,22 +17,45 @@ The project is currently under active development, with its core structure and i
 - **PBKDF2-HMAC-SHA256** — Provides master-password-based encryption key derivation.
 - **Secure Random Generation** — Generates cryptographic salts and encryption nonces.
 
+### Master Password Authentication
+- **Master Password Setup** — Provides the initial master password setup process.
+- **Vault Unlocking** — Allows users to authenticate before accessing the vault.
+- **Password Validation** — Checks master password requirements during setup.
+
+### Dashboard
+- **Credential Statistics** — Displays an overview of saved credentials.
+- **Category Statistics** — Shows the number of credential categories.
+- **Activity Overview** — Displays activity record statistics.
+- **Recent Credentials** — Shows recently added credential entries.
+
+### Credential Entry Form
+- **Credential Input Form** — Provides fields for account titles, usernames, passwords, URLs, categories, and notes.
+- **Add and Edit Support** — Supports preparing new credential entries and editing existing ones.
+
+### Password Generator
+- **Custom Password Length** — Generates passwords with configurable lengths.
+- **Character Options** — Supports uppercase letters, lowercase letters, numbers, and symbols.
+- **Password Strength Estimate** — Displays an estimated password strength.
+- **Copy to Clipboard** — Allows generated passwords to be copied conveniently.
+
 ### Category Management
 - **Credential Categories** — Supports organizing credentials using category information.
 - **Category Structure** — Establishes the foundation for grouping and managing saved credentials.
 
+### Activity History
+- **Activity Records** — Displays recorded vault activities.
+- **Activity Descriptions** — Shows information about logged actions.
+- **History Interface** — Provides a dedicated page for reviewing activity records.
+
 ## Planned Features
 
-The following components are planned and will be added as development continues:
+The following components are still under development or planned for future updates:
 
-- **Master Password Authentication** — Initial vault setup and unlocking.
-- **Credential Management** — Add, view, edit, delete, and search saved credentials.
-- **Dashboard** — Overview of saved credentials and recent activity.
-- **Password Generator** — Generate customizable passwords.
-- **Security Analysis** — Identify weak and reused passwords.
-- **Activity History** — Track important vault activities.
+- **Complete Credential Management** — Fully integrate adding, viewing, editing, deleting, and searching credentials through the vault interface.
+- **Security Analysis** — Identify weak and reused passwords and provide security recommendations.
 - **Settings** — Manage application preferences and vault controls.
-- **Complete Desktop Interface** — Dark-themed navigation and fully integrated application pages.
+- **Main Dashboard Integration** — Connect all completed panels through the main application navigation.
+- **Additional Security Improvements** — Improve vault protection, password handling, and application security.
 
 ## Technologies Used
 
@@ -43,6 +66,7 @@ The following components are planned and will be added as development continues:
 - Java Cryptography Architecture (JCA)
 - AES-256-GCM
 - PBKDF2-HMAC-SHA256
+- SecureRandom
 - Maven
 
 ## Requirements
@@ -63,7 +87,7 @@ The following components are planned and will be added as development continues:
 mvn clean compile
 ```
 
-The complete desktop application is still under development, so not all planned features are currently available.
+The complete desktop application is still under development, and not all planned features are currently integrated.
 
 ## Current Project Structure
 
@@ -82,7 +106,12 @@ SecureVault/
 │                   ├── model/
 │                   │   └── VaultEntry.java
 │                   └── ui/
-│                       └── CategoriesPanel.java
+│                       ├── CategoriesPanel.java
+│                       ├── DashboardPanel.java
+│                       ├── EntryDialog.java
+│                       ├── GeneratorPanel.java
+│                       ├── HistoryPanel.java
+│                       └── LoginFrame.java
 ├── pom.xml
 └── README.md
 ```
@@ -91,9 +120,9 @@ SecureVault/
 
 **Under Active Development**
 
-SecureVault is being developed gradually, with the core application structure, database integration, encryption services, and initial category management components serving as the foundation.
+SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, and activity history interface.
 
-Additional interface components, credential management tools, and security features will be introduced in future updates.
+Additional components and improvements will be introduced in future updates as development continues.
 
 ## Security Notice
 
