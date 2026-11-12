@@ -47,13 +47,38 @@ The project is currently under active development, with its core functionality a
 - **Activity Descriptions** — Shows information about logged actions.
 - **History Interface** — Provides a dedicated page for reviewing activity records.
 
+### Security Management
+- **Security Panel** — Provides a dedicated interface for security-related features and vault protection.
+- **Security Analysis Foundation** — Establishes the interface for future password security monitoring and recommendations.
+
+### Settings
+- **Settings Panel** — Provides a dedicated interface for application preferences and configuration.
+- **Theme Management** — Includes a centralized theme component for maintaining the application's visual appearance.
+
+### Vault Management
+- **Vault Panel** — Provides a dedicated interface for accessing and organizing stored credentials.
+- **Main Application Navigation** — Uses a centralized main frame to organize the application's different panels.
+
+### User Interface
+- **Login Interface** — Provides the initial authentication screen for accessing the vault.
+- **Dashboard Panel** — Establishes the main dashboard interface.
+- **Credential Entry Dialog** — Provides a dedicated dialog for preparing credential entries.
+- **Password Generator Panel** — Provides a dedicated interface for generating passwords.
+- **History Panel** — Displays recorded vault activities.
+- **Category Panel** — Provides an interface for credential category organization.
+- **Security Panel** — Establishes the security management interface.
+- **Settings Panel** — Provides an interface for application settings.
+- **Main Frame** — Serves as the primary application window and navigation structure.
+- **Theme Component** — Centralizes the application's visual theme.
+- **Vault Panel** — Provides the main credential management interface.
+
 ## Planned Features
 
 The following components are still under development or planned for future updates:
 
 - **Complete Credential Management** — Fully integrate adding, viewing, editing, deleting, and searching credentials through the vault interface.
 - **Security Analysis** — Identify weak and reused passwords and provide security recommendations.
-- **Settings** — Manage application preferences and vault controls.
+- **Settings** — Fully integrate application preferences and vault controls.
 - **Main Dashboard Integration** — Connect all completed panels through the main application navigation.
 - **Additional Security Improvements** — Improve vault protection, password handling, and application security.
 
@@ -111,7 +136,12 @@ SecureVault/
 │                       ├── EntryDialog.java
 │                       ├── GeneratorPanel.java
 │                       ├── HistoryPanel.java
-│                       └── LoginFrame.java
+│                       ├── LoginFrame.java
+│                       ├── MainFrame.java
+│                       ├── SecurityPanel.java
+│                       ├── SettingsPanel.java
+│                       ├── Theme.java
+│                       └── VaultPanel.java
 ├── pom.xml
 └── README.md
 ```
@@ -121,6 +151,8 @@ SecureVault/
 **Under Active Development**
 
 SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, and activity history interface.
+
+The UI structure now includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Settings, Login, and Main Application Frame, along with a centralized Theme component.
 
 Additional components and improvements will be introduced in future updates as development continues.
 
