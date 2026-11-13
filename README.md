@@ -33,10 +33,24 @@ The project is currently under active development, with its core functionality a
 - **Add and Edit Support** — Supports preparing new credential entries and editing existing ones.
 
 ### Password Generator
-- **Custom Password Length** — Generates passwords with configurable lengths.
+- **Custom Password Length** — Generates passwords with configurable lengths from 8 to 64 characters.
 - **Character Options** — Supports uppercase letters, lowercase letters, numbers, and symbols.
-- **Password Strength Estimate** — Displays an estimated password strength.
+- **Secure Random Generation** — Uses Java's `SecureRandom` to generate random passwords.
+- **Character Group Inclusion** — Ensures at least one character from each selected character group is included in the generated password.
+- **Password Strength Analysis** — Uses the Password Strength Analyzer to calculate a score from 0 to 100.
+- **Strength Classification** — Displays password ratings ranging from Very Weak to Very Strong.
+- **Password Recommendations** — Provides suggestions based on the generated password's characteristics.
 - **Copy to Clipboard** — Allows generated passwords to be copied conveniently.
+
+### Password Strength Analyzer
+- **Password Scoring System** — Evaluates passwords using a score ranging from 0 to 100.
+- **Strength Classification** — Categorizes passwords as Very Weak, Weak, Fair, Strong, or Very Strong.
+- **Password Length Analysis** — Evaluates password length and rewards longer passwords.
+- **Character Variety Detection** — Checks for uppercase letters, lowercase letters, numbers, and symbols.
+- **Common Password Detection** — Identifies selected commonly used passwords.
+- **Repeated Character Detection** — Identifies consecutive repeated characters.
+- **Sequential Character Detection** — Detects predictable sequences such as ascending or descending characters.
+- **Security Recommendations** — Provides suggestions to improve password quality.
 
 ### Category Management
 - **Credential Categories** — Supports organizing credentials using category information.
@@ -48,8 +62,13 @@ The project is currently under active development, with its core functionality a
 - **History Interface** — Provides a dedicated page for reviewing activity records.
 
 ### Security Management
-- **Security Panel** — Provides a dedicated interface for security-related features and vault protection.
-- **Security Analysis Foundation** — Establishes the interface for future password security monitoring and recommendations.
+- **Security Panel** — Provides a dedicated interface for reviewing password security.
+- **Weak Password Detection** — Identifies credentials with low password strength scores.
+- **Reused Password Detection** — Identifies passwords shared across multiple saved accounts.
+- **Individual Password Analysis** — Displays the strength classification and numerical score of each credential.
+- **Security Status Overview** — Displays total credentials, weak passwords, reused passwords, and strong passwords.
+- **Security Recommendations** — Provides improvement suggestions for individual credentials.
+- **Refreshable Security Analysis** — Allows users to refresh the security report using their saved credentials.
 
 ### Settings
 - **Settings Panel** — Provides a dedicated interface for application preferences and configuration.
@@ -57,16 +76,20 @@ The project is currently under active development, with its core functionality a
 
 ### Vault Management
 - **Vault Panel** — Provides a dedicated interface for accessing and organizing stored credentials.
+- **Credential Search** — Supports searching saved credentials by title, username, and category.
+- **View Credentials** — Allows users to view saved credential details.
+- **Edit Credentials** — Supports modifying existing credential entries.
+- **Delete Credentials** — Allows users to remove saved credentials.
 - **Main Application Navigation** — Uses a centralized main frame to organize the application's different panels.
 
 ### User Interface
 - **Login Interface** — Provides the initial authentication screen for accessing the vault.
 - **Dashboard Panel** — Establishes the main dashboard interface.
 - **Credential Entry Dialog** — Provides a dedicated dialog for preparing credential entries.
-- **Password Generator Panel** — Provides a dedicated interface for generating passwords.
+- **Password Generator Panel** — Provides a dedicated interface for generating and evaluating passwords.
 - **History Panel** — Displays recorded vault activities.
 - **Category Panel** — Provides an interface for credential category organization.
-- **Security Panel** — Establishes the security management interface.
+- **Security Panel** — Provides the security analysis interface.
 - **Settings Panel** — Provides an interface for application settings.
 - **Main Frame** — Serves as the primary application window and navigation structure.
 - **Theme Component** — Centralizes the application's visual theme.
@@ -76,11 +99,15 @@ The project is currently under active development, with its core functionality a
 
 The following components are still under development or planned for future updates:
 
-- **Complete Credential Management** — Fully integrate adding, viewing, editing, deleting, and searching credentials through the vault interface.
-- **Security Analysis** — Identify weak and reused passwords and provide security recommendations.
-- **Settings** — Fully integrate application preferences and vault controls.
-- **Main Dashboard Integration** — Connect all completed panels through the main application navigation.
-- **Additional Security Improvements** — Improve vault protection, password handling, and application security.
+- **Encrypted Backup** — Implement encrypted backups of stored credentials.
+- **Backup Restoration** — Provide a way to restore credentials from encrypted backup files.
+- **Clipboard Auto-Clear** — Automatically clear copied passwords from the clipboard after a configurable period.
+- **Automatic Vault Locking** — Lock the vault after a period of inactivity.
+- **Advanced Search and Filtering** — Expand credential search with additional filtering options.
+- **Password Expiration Tracking** — Track password age and identify credentials that may need updating.
+- **Security Recommendations Expansion** — Introduce additional security checks and recommendations.
+- **Dashboard Improvements** — Expand dashboard statistics and security-related information.
+- **Additional Security Improvements** — Continue improving vault protection, password handling, and application security.
 
 ## Technologies Used
 
@@ -112,6 +139,12 @@ The following components are still under development or planned for future updat
 mvn clean compile
 ```
 
+6. Run the application:
+
+```bash
+mvn exec:java
+```
+
 The complete desktop application is still under development, and not all planned features are currently integrated.
 
 ## Current Project Structure
@@ -130,6 +163,8 @@ SecureVault/
 │                   │   └── Database.java
 │                   ├── model/
 │                   │   └── VaultEntry.java
+│                   ├── service/
+│                   │   └── PasswordStrengthAnalyzer.java
 │                   └── ui/
 │                       ├── CategoriesPanel.java
 │                       ├── DashboardPanel.java
@@ -150,15 +185,17 @@ SecureVault/
 
 **Under Active Development**
 
-SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, and activity history interface.
+SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, and password security analysis.
 
-The UI structure now includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Settings, Login, and Main Application Frame, along with a centralized Theme component.
+The Password Generator now uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the same analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
+
+The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Settings, Login, and Main Application Frame, along with a centralized Theme component.
 
 Additional components and improvements will be introduced in future updates as development continues.
 
 ## Security Notice
 
-SecureVault is an educational project and has not undergone a professional security audit. Its encryption implementation is intended for learning and development purposes. Avoid storing real or sensitive credentials until the application has been thoroughly tested and reviewed.
+SecureVault is an educational project and has not undergone a professional security audit. Its encryption implementation and password strength analysis are intended for learning and development purposes. The password strength analyzer uses local heuristic checks and does not verify whether passwords have appeared in data breaches. Avoid storing real or sensitive credentials until the application has been thoroughly tested and reviewed.
 
 ## Purpose
 
