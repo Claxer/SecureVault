@@ -13,6 +13,7 @@ public class EntryDialog extends JDialog {
     private final JTextField usernameField = new JTextField();
     private final JPasswordField passwordField = new JPasswordField();
     private final JTextField urlField = new JTextField();
+
     private final JComboBox<String> categoryField = new JComboBox<>(
             new String[]{
                     "Uncategorized",
@@ -25,20 +26,27 @@ public class EntryDialog extends JDialog {
                     "Other"
             }
     );
+
     private final JTextArea notesField = new JTextArea(4, 20);
+    private final JCheckBox favoriteField =
+            new JCheckBox("Add to Favorites");
 
     private final VaultEntry originalEntry;
+
     private boolean saved = false;
     private VaultEntry result;
 
     public EntryDialog(Window owner, VaultEntry entry) {
-        super(owner, entry == null ? "Add Credential" : "Edit Credential",
-                ModalityType.APPLICATION_MODAL);
+        super(
+                owner,
+                entry == null ? "Add Credential" : "Edit Credential",
+                ModalityType.APPLICATION_MODAL
+        );
 
-        this.originalEntry = entry;
+        originalEntry = entry;
 
-        setSize(480, 610);
-        setMinimumSize(new Dimension(420, 550));
+        setSize(480, 650);
+        setMinimumSize(new Dimension(420, 580));
         setLocationRelativeTo(owner);
 
         buildUI();
@@ -53,13 +61,14 @@ public class EntryDialog extends JDialog {
         root.setBackground(Theme.BG);
         root.setBorder(new EmptyBorder(22, 24, 22, 24));
 
-        JLabel heading = Theme.heading(
-                originalEntry == null
-                        ? "Add Credential"
-                        : "Edit Credential"
+        root.add(
+                Theme.heading(
+                        originalEntry == null
+                                ? "Add Credential"
+                                : "Edit Credential"
+                ),
+                BorderLayout.NORTH
         );
-
-        root.add(heading, BorderLayout.NORTH);
 
         JPanel fields = new JPanel(new GridLayout(0, 1, 0, 7));
         fields.setBackground(Theme.BG);
@@ -84,11 +93,19 @@ public class EntryDialog extends JDialog {
         JScrollPane notesScroll = new JScrollPane(notesField);
         notesScroll.setBorder(BorderFactory.createEmptyBorder());
         notesScroll.getViewport().setBackground(Theme.LIGHT);
+
         fields.add(notesScroll);
+
+        favoriteField.setOpaque(false);
+        favoriteField.setForeground(Theme.FG);
+        favoriteField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        fields.add(favoriteField);
 
         root.add(fields, BorderLayout.CENTER);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        JPanel actions = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 10, 0)
+        );
         actions.setBackground(Theme.BG);
 
         JButton cancelButton = Theme.button("Cancel");
@@ -107,7 +124,11 @@ public class EntryDialog extends JDialog {
         setContentPane(root);
     }
 
-    private void addField(JPanel panel, String label, JComponent field) {
+    private void addField(
+            JPanel panel,
+            String label,
+            JComponent field
+    ) {
         panel.add(createLabel(label));
 
         Theme.style(field);
@@ -131,12 +152,15 @@ public class EntryDialog extends JDialog {
         passwordField.setText(entry.password());
         urlField.setText(entry.url());
         notesField.setText(entry.notes());
+
         categoryField.setSelectedItem(entry.category());
 
         if (categoryField.getSelectedItem() == null) {
             categoryField.addItem(entry.category());
             categoryField.setSelectedItem(entry.category());
         }
+
+        favoriteField.setSelected(entry.favorite());
     }
 
     private void saveEntry() {
@@ -144,7 +168,11 @@ public class EntryDialog extends JDialog {
         String username = usernameField.getText().trim();
         String password = new String(passwordField.getPassword());
         String url = urlField.getText().trim();
-        String category = String.valueOf(categoryField.getSelectedItem());
+
+        String category = String.valueOf(
+                categoryField.getSelectedItem()
+        );
+
         String notes = notesField.getText().trim();
 
         if (title.isBlank()) {
@@ -181,10 +209,12 @@ public class EntryDialog extends JDialog {
                 url,
                 category,
                 notes,
-                createdAt
+                createdAt,
+                favoriteField.isSelected()
         );
 
         saved = true;
+
         passwordField.setText("");
         dispose();
     }
