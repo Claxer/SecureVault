@@ -11,6 +11,7 @@ The project is currently under active development, with its core functionality a
 - **Maven Configuration** — Manages project dependencies and build configuration.
 - **Database Integration** — Connects the application to a local SQLite database.
 - **Credential Data Model** — Defines the structure used to represent stored credentials.
+- **Database Migration** — Adds support for new database fields while preserving existing credential records.
 
 ### Encryption & Security
 - **AES-256-GCM Encryption** — Encrypts credential information before database storage.
@@ -31,6 +32,7 @@ The project is currently under active development, with its core functionality a
 ### Credential Entry Form
 - **Credential Input Form** — Provides fields for account titles, usernames, passwords, URLs, categories, and notes.
 - **Add and Edit Support** — Supports preparing new credential entries and editing existing ones.
+- **Favorite Option** — Allows users to mark credential entries as favorites directly from the entry form.
 
 ### Password Generator
 - **Custom Password Length** — Generates passwords with configurable lengths from 8 to 64 characters.
@@ -60,6 +62,7 @@ The project is currently under active development, with its core functionality a
 - **Activity Records** — Displays recorded vault activities.
 - **Activity Descriptions** — Shows information about logged actions.
 - **History Interface** — Provides a dedicated page for reviewing activity records.
+- **Generic Activity Logging** — Records credential-related actions without including credential titles in new activity descriptions.
 
 ### Security Management
 - **Security Panel** — Provides a dedicated interface for reviewing password security.
@@ -76,10 +79,16 @@ The project is currently under active development, with its core functionality a
 
 ### Vault Management
 - **Vault Panel** — Provides a dedicated interface for accessing and organizing stored credentials.
-- **Credential Search** — Supports searching saved credentials by title, username, and category.
+- **Credential Search** — Supports searching saved credentials by title, username, category, and notes.
+- **Favorites Management** — Allows users to mark and unmark credentials as favorites.
+- **Favorites Filtering** — Provides options to display all credentials, favorites only, or non-favorite credentials.
+- **Credential Sorting** — Supports sorting saved credentials by newest, oldest, title, username, and category.
+- **Favorite Indicators** — Displays favorite status directly in the credential table.
 - **View Credentials** — Allows users to view saved credential details.
 - **Edit Credentials** — Supports modifying existing credential entries.
 - **Delete Credentials** — Allows users to remove saved credentials.
+- **Copy Password** — Allows users to copy a saved credential's password to the clipboard.
+- **Clipboard Auto-Clear** — Attempts to clear copied passwords from the clipboard after 30 seconds, provided the clipboard still contains the copied password.
 - **Main Application Navigation** — Uses a centralized main frame to organize the application's different panels.
 
 ### User Interface
@@ -101,7 +110,6 @@ The following components are still under development or planned for future updat
 
 - **Encrypted Backup** — Implement encrypted backups of stored credentials.
 - **Backup Restoration** — Provide a way to restore credentials from encrypted backup files.
-- **Clipboard Auto-Clear** — Automatically clear copied passwords from the clipboard after a configurable period.
 - **Automatic Vault Locking** — Lock the vault after a period of inactivity.
 - **Advanced Search and Filtering** — Expand credential search with additional filtering options.
 - **Password Expiration Tracking** — Track password age and identify credentials that may need updating.
@@ -187,7 +195,11 @@ SecureVault/
 
 SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, and password security analysis.
 
-The Password Generator now uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the same analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
+The Password Generator uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the same analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
+
+The Vault Management interface now supports credential favorites, filtering between all, favorite, and non-favorite entries, expanded credential searching, and sorting by different credential fields. Users can also copy saved passwords to the clipboard, with an automatic clearing attempt after 30 seconds.
+
+Database updates also support the new favorite field while preserving existing credential records. New credential activity descriptions use generic action labels instead of including credential titles.
 
 The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Settings, Login, and Main Application Frame, along with a centralized Theme component.
 
@@ -195,7 +207,7 @@ Additional components and improvements will be introduced in future updates as d
 
 ## Security Notice
 
-SecureVault is an educational project and has not undergone a professional security audit. Its encryption implementation and password strength analysis are intended for learning and development purposes. The password strength analyzer uses local heuristic checks and does not verify whether passwords have appeared in data breaches. Avoid storing real or sensitive credentials until the application has been thoroughly tested and reviewed.
+SecureVault is an educational project and has not undergone a professional security audit. Its encryption implementation and password strength analysis are intended for learning and development purposes. The password strength analyzer uses local heuristic checks and does not verify whether passwords have appeared in data breaches. Clipboard auto-clear is best-effort and cannot guarantee removal from operating system clipboard history or third-party clipboard managers. Avoid storing real or sensitive credentials until the application has been thoroughly tested and reviewed.
 
 ## Purpose
 
