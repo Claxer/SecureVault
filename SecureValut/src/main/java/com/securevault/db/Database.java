@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 public class Database {
@@ -36,6 +37,7 @@ public class Database {
             }
 
             createTables();
+            migrateDatabase();
 
         } catch (Exception e) {
             throw new IllegalStateException(
@@ -78,6 +80,51 @@ public class Database {
         }
     }
 
+    /*
+     * Adds new database columns without deleting existing records.
+     */
+    private void migrateDatabase() throws SQLException {
+        addColumnIfMissing(
+                "credentials",
+                "favorite",
+                "INTEGER NOT NULL DEFAULT 0"
+        );
+    }
+
+    private void addColumnIfMissing(
+            String table,
+            String column,
+            String definition
+    ) throws SQLException {
+
+        boolean columnExists = false;
+
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(
+                     "PRAGMA table_info(" + table + ")"
+             )) {
+
+            while (result.next()) {
+                if (column.equalsIgnoreCase(
+                        result.getString("name")
+                )) {
+                    columnExists = true;
+                    break;
+                }
+            }
+        }
+
+        if (!columnExists) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "ALTER TABLE " + table
+                                + " ADD COLUMN " + column
+                                + " " + definition
+                );
+            }
+        }
+    }
+
     public boolean isInitialized() {
         String sql = "SELECT COUNT(*) FROM vault_settings";
 
@@ -115,7 +162,7 @@ public class Database {
 
             statement.setString(
                     1,
-                    java.util.Base64.getEncoder().encodeToString(salt)
+                    Base64.getEncoder().encodeToString(salt)
             );
 
             statement.setString(
@@ -145,10 +192,12 @@ public class Database {
              ResultSet result = statement.executeQuery(sql)) {
 
             if (!result.next()) {
-                throw new IllegalStateException("Vault has not been initialized.");
+                throw new IllegalStateException(
+                        "Vault has not been initialized."
+                );
             }
 
-            byte[] salt = java.util.Base64.getDecoder().decode(
+            byte[] salt = Base64.getDecoder().decode(
                     result.getString("salt")
             );
 
@@ -157,7 +206,9 @@ public class Database {
             SecretKey key = CryptoService.deriveKey(password, salt);
 
             if (!CryptoService.verifyKey(key, verifier)) {
-                throw new SecurityException("Incorrect master password.");
+                throw new SecurityException(
+                        "Incorrect master password."
+                );
             }
 
             logEvent("Vault unlocked");
@@ -178,7 +229,8 @@ public class Database {
             ORDER BY id DESC
         """;
 
-        try (PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql);
              ResultSet result = statement.executeQuery()) {
 
             while (result.next()) {
@@ -190,7 +242,8 @@ public class Database {
                         decryptField(result.getString("url"), key),
                         decryptField(result.getString("category"), key),
                         decryptField(result.getString("notes"), key),
-                        result.getString("created_at")
+                        result.getString("created_at"),
+                        result.getInt("favorite") == 1
                 ));
             }
 
@@ -204,8 +257,11 @@ public class Database {
     public void add(VaultEntry entry, SecretKey key) {
         String sql = """
             INSERT INTO credentials
-            (title, username, password, url, category, notes, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (
+                title, username, password,
+                url, category, notes, created_at, favorite
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """;
 
         try (PreparedStatement statement =
@@ -225,9 +281,11 @@ public class Database {
                             : entry.createdAt()
             );
 
+            statement.setInt(8, entry.favorite() ? 1 : 0);
+
             statement.executeUpdate();
 
-            logEvent("Credential added: " + entry.title());
+            logEvent("Credential added");
 
         } catch (SQLException e) {
             throw databaseError(e);
@@ -238,7 +296,7 @@ public class Database {
         String sql = """
             UPDATE credentials
             SET title = ?, username = ?, password = ?,
-                url = ?, category = ?, notes = ?
+                url = ?, category = ?, notes = ?, favorite = ?
             WHERE id = ?
         """;
 
@@ -251,11 +309,12 @@ public class Database {
             statement.setString(4, encryptField(entry.url(), key));
             statement.setString(5, encryptField(entry.category(), key));
             statement.setString(6, encryptField(entry.notes(), key));
-            statement.setLong(7, entry.id());
+            statement.setInt(7, entry.favorite() ? 1 : 0);
+            statement.setLong(8, entry.id());
 
             statement.executeUpdate();
 
-            logEvent("Credential updated: " + entry.title());
+            logEvent("Credential updated");
 
         } catch (SQLException e) {
             throw databaseError(e);
@@ -263,34 +322,43 @@ public class Database {
     }
 
     public void delete(long id) {
-        String title = "ID " + id;
-
-        String lookup = "SELECT title FROM credentials WHERE id = ?";
+        String sql = "DELETE FROM credentials WHERE id = ?";
 
         try (PreparedStatement statement =
-                     connection.prepareStatement(lookup)) {
-
-            statement.setLong(1, id);
-
-            try (ResultSet result = statement.executeQuery()) {
-                if (result.next()) {
-                    title = "credential ID " + id;
-                }
-            }
-
-        } catch (SQLException e) {
-            throw databaseError(e);
-        }
-
-        try (PreparedStatement statement =
-                     connection.prepareStatement(
-                             "DELETE FROM credentials WHERE id = ?"
-                     )) {
+                     connection.prepareStatement(sql)) {
 
             statement.setLong(1, id);
             statement.executeUpdate();
 
-            logEvent("Credential deleted: " + title);
+            logEvent("Credential deleted");
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    public void setFavorite(long id, boolean favorite) {
+        String sql = """
+            UPDATE credentials
+            SET favorite = ?
+            WHERE id = ?
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(1, favorite ? 1 : 0);
+            statement.setLong(2, id);
+
+            int updated = statement.executeUpdate();
+
+            if (updated > 0) {
+                logEvent(
+                        favorite
+                                ? "Credential added to favorites"
+                                : "Credential removed from favorites"
+                );
+            }
 
         } catch (SQLException e) {
             throw databaseError(e);
