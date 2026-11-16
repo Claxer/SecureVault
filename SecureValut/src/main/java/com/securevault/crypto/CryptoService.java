@@ -1,13 +1,15 @@
 package com.securevault.crypto;
 
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.crypto.Mac;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
@@ -39,18 +41,26 @@ public final class CryptoService {
                 KEY_LENGTH
         );
 
+        byte[] keyBytes = null;
+
         try {
             SecretKeyFactory factory =
                     SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
 
-            byte[] keyBytes = factory.generateSecret(spec).getEncoded();
+            keyBytes = factory.generateSecret(spec).getEncoded();
 
             return new SecretKeySpec(keyBytes, "AES");
 
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("Could not derive encryption key.", e);
+            throw new IllegalStateException(
+                    "Could not derive encryption key.", e
+            );
         } finally {
             spec.clearPassword();
+
+            if (keyBytes != null) {
+                Arrays.fill(keyBytes, (byte) 0);
+            }
         }
     }
 
@@ -61,14 +71,16 @@ public final class CryptoService {
 
             byte[] result = mac.doFinal(
                     "SecureVault master password verification".getBytes(
-                            java.nio.charset.StandardCharsets.UTF_8
+                            StandardCharsets.UTF_8
                     )
             );
 
             return Base64.getEncoder().encodeToString(result);
 
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("Could not verify master key.", e);
+            throw new IllegalStateException(
+                    "Could not verify master key.", e
+            );
         }
     }
 
@@ -81,7 +93,7 @@ public final class CryptoService {
             byte[] expected = Base64.getDecoder().decode(storedVerifier);
             byte[] actual = Base64.getDecoder().decode(createVerifier(key));
 
-            return java.security.MessageDigest.isEqual(expected, actual);
+            return MessageDigest.isEqual(expected, actual);
 
         } catch (IllegalArgumentException e) {
             return false;
@@ -102,7 +114,7 @@ public final class CryptoService {
             );
 
             byte[] encrypted = cipher.doFinal(
-                    plainText.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                    plainText.getBytes(StandardCharsets.UTF_8)
             );
 
             byte[] combined = new byte[nonce.length + encrypted.length];
@@ -147,14 +159,99 @@ public final class CryptoService {
 
             byte[] decrypted = cipher.doFinal(encrypted);
 
-            return new String(
-                    decrypted,
-                    java.nio.charset.StandardCharsets.UTF_8
-            );
+            return new String(decrypted, StandardCharsets.UTF_8);
 
         } catch (GeneralSecurityException | IllegalArgumentException e) {
             throw new IllegalStateException(
                     "Decryption failed. The vault key or stored data may be invalid.",
+                    e
+            );
+        }
+    }
+
+    /*
+     * Encrypts binary data using a password-derived AES-256 key.
+     * The returned byte array contains the nonce followed by ciphertext.
+     */
+    public static byte[] encryptBytes(
+            byte[] plainData,
+            char[] password,
+            byte[] salt
+    ) {
+        try {
+            SecretKey key = deriveKey(password, salt);
+
+            byte[] nonce = new byte[NONCE_LENGTH];
+            RANDOM.nextBytes(nonce);
+
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+            cipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    key,
+                    new GCMParameterSpec(TAG_LENGTH, nonce)
+            );
+
+            byte[] encrypted = cipher.doFinal(plainData);
+
+            byte[] combined = new byte[nonce.length + encrypted.length];
+
+            System.arraycopy(nonce, 0, combined, 0, nonce.length);
+            System.arraycopy(
+                    encrypted, 0,
+                    combined, nonce.length,
+                    encrypted.length
+            );
+
+            return combined;
+
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(
+                    "Backup encryption failed.", e
+            );
+        }
+    }
+
+    /*
+     * Decrypts binary data previously encrypted by encryptBytes().
+     */
+    public static byte[] decryptBytes(
+            byte[] encryptedData,
+            char[] password,
+            byte[] salt
+    ) {
+        try {
+            if (encryptedData == null
+                    || encryptedData.length <= NONCE_LENGTH + 16) {
+                throw new GeneralSecurityException(
+                        "Invalid encrypted backup data."
+                );
+            }
+
+            SecretKey key = deriveKey(password, salt);
+
+            byte[] nonce = Arrays.copyOfRange(
+                    encryptedData, 0, NONCE_LENGTH
+            );
+
+            byte[] encrypted = Arrays.copyOfRange(
+                    encryptedData, NONCE_LENGTH, encryptedData.length
+            );
+
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+            cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    key,
+                    new GCMParameterSpec(TAG_LENGTH, nonce)
+            );
+
+            return cipher.doFinal(encrypted);
+
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(
+                    "Backup decryption failed. The password may be incorrect " +
+                            "or the backup may have been modified.",
                     e
             );
         }
