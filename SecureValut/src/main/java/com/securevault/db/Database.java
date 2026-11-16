@@ -423,6 +423,53 @@ public class Database {
         );
     }
 
+    /*
+     * Creates a consistent SQLite snapshot for encrypted backups.
+     *
+     * VACUUM INTO creates a separate database file without copying
+     * an actively used SQLite database file directly.
+     */
+    public void createSnapshot(Path destination) {
+
+        if (destination == null) {
+            throw new IllegalArgumentException(
+                    "Backup destination cannot be empty."
+            );
+        }
+
+        Path absolutePath = destination.toAbsolutePath().normalize();
+
+        try {
+            Path parent = absolutePath.getParent();
+
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            if (Files.exists(absolutePath)) {
+                throw new IllegalStateException(
+                        "The snapshot destination already exists."
+                );
+            }
+
+            String safePath = absolutePath.toString().replace("'", "''");
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "VACUUM INTO '" + safePath + "'"
+                );
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(
+                    "Could not create the database snapshot.", e
+            );
+        }
+    }
+
     private IllegalStateException databaseError(SQLException e) {
         return new IllegalStateException(
                 "Database operation failed: " + e.getMessage(), e
