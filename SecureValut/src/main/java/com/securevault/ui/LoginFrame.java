@@ -38,6 +38,7 @@ public class LoginFrame extends JFrame {
     }
 
     private void buildUI() {
+
         boolean firstSetup = !database.isInitialized();
 
         JPanel root = new JPanel(new GridBagLayout());
@@ -107,6 +108,7 @@ public class LoginFrame extends JFrame {
             String labelText,
             JPasswordField field
     ) {
+
         JLabel label = new JLabel(labelText);
         label.setForeground(Theme.FG);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -124,10 +126,12 @@ public class LoginFrame extends JFrame {
     }
 
     private void authenticate(boolean firstSetup) {
+
         char[] password = passwordField.getPassword();
         char[] confirmation = confirmField.getPassword();
 
         try {
+
             if (password.length == 0) {
                 messageLabel.setText("Enter your master password.");
                 return;
@@ -136,6 +140,7 @@ public class LoginFrame extends JFrame {
             SecretKey key;
 
             if (firstSetup) {
+
                 if (password.length < 10) {
                     messageLabel.setText(
                             "Password must contain at least 10 characters."
@@ -160,9 +165,11 @@ public class LoginFrame extends JFrame {
             successAction.accept(database, key);
 
         } catch (SecurityException e) {
+
             messageLabel.setText("Incorrect master password.");
 
         } catch (Exception e) {
+
             messageLabel.setText(
                     e.getMessage() == null
                             ? "Unable to open the vault."
@@ -170,6 +177,7 @@ public class LoginFrame extends JFrame {
             );
 
         } finally {
+
             Arrays.fill(password, '\0');
             Arrays.fill(confirmation, '\0');
 
