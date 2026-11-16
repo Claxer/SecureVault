@@ -5,8 +5,11 @@ import com.securevault.db.Database;
 import javax.crypto.SecretKey;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.AWTEventListener;
 
 public class MainFrame extends JFrame {
+
+    private static final int AUTO_LOCK_DELAY = 5 * 60 * 1000;
 
     private final Database database;
     private final SecretKey secretKey;
@@ -14,6 +17,11 @@ public class MainFrame extends JFrame {
 
     private final JPanel contentPanel;
     private final CardLayout cardLayout;
+
+    private final Timer inactivityTimer;
+    private final AWTEventListener activityListener;
+
+    private boolean locked = false;
 
     private DashboardPanel dashboardPanel;
     private VaultPanel vaultPanel;
@@ -48,10 +56,41 @@ public class MainFrame extends JFrame {
 
         showPage("Dashboard");
 
+        inactivityTimer = new Timer(
+                AUTO_LOCK_DELAY,
+                e -> lockVaultAutomatically()
+        );
+
+        inactivityTimer.setRepeats(false);
+
+        activityListener = event -> {
+            if (belongsToVault(event.getSource())) {
+                resetInactivityTimer();
+            }
+        };
+
+        Toolkit.getDefaultToolkit().addAWTEventListener(
+                activityListener,
+                AWTEvent.MOUSE_EVENT_MASK
+                        | AWTEvent.MOUSE_MOTION_EVENT_MASK
+                        | AWTEvent.MOUSE_WHEEL_EVENT_MASK
+                        | AWTEvent.KEY_EVENT_MASK
+        );
+
+        resetInactivityTimer();
+
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
                 lockVault();
+            }
+
+            @Override
+            public void windowClosed(java.awt.event.WindowEvent e) {
+                inactivityTimer.stop();
+
+                Toolkit.getDefaultToolkit()
+                        .removeAWTEventListener(activityListener);
             }
         });
     }
@@ -145,7 +184,40 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private boolean belongsToVault(Object source) {
+
+        if (!(source instanceof Component component)) {
+            return false;
+        }
+
+        Window window = component instanceof Window
+                ? (Window) component
+                : SwingUtilities.getWindowAncestor(component);
+
+        while (window != null) {
+
+            if (window == this) {
+                return true;
+            }
+
+            window = window.getOwner();
+        }
+
+        return false;
+    }
+
+    private void resetInactivityTimer() {
+
+        if (!locked && inactivityTimer != null) {
+            inactivityTimer.restart();
+        }
+    }
+
     private void lockVault() {
+
+        if (locked) {
+            return;
+        }
 
         int choice = JOptionPane.showConfirmDialog(
                 this,
@@ -155,13 +227,47 @@ public class MainFrame extends JFrame {
         );
 
         if (choice == JOptionPane.YES_OPTION) {
-            try {
-                database.close();
-            } catch (Exception ignored) {
-            }
-
-            dispose();
-            lockAction.run();
+            closeAndLock();
         }
+    }
+
+    private void lockVaultAutomatically() {
+
+        if (locked) {
+            return;
+        }
+
+        JOptionPane.showMessageDialog(
+                this,
+                "SecureVault has been locked due to inactivity.\n" +
+                        "Enter your master password to continue.",
+                "Automatic Vault Lock",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+
+        closeAndLock();
+    }
+
+    private void closeAndLock() {
+
+        if (locked) {
+            return;
+        }
+
+        locked = true;
+
+        inactivityTimer.stop();
+
+        Toolkit.getDefaultToolkit()
+                .removeAWTEventListener(activityListener);
+
+        try {
+            database.close();
+        } catch (Exception ignored) {
+        }
+
+        dispose();
+
+        lockAction.run();
     }
 }
