@@ -5,6 +5,7 @@ import com.securevault.service.BackupService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
 import java.nio.file.Files;
@@ -115,7 +116,8 @@ public class SettingsPanel extends JPanel {
 
         JLabel backupDescription = new JLabel(
                 "<html>Create an encrypted backup of your SecureVault database. " +
-                        "Your backup will require a separate password.</html>"
+                        "Your backup will require a separate password. " +
+                        "You can also restore a previously created backup.</html>"
         );
 
         backupDescription.setFont(
@@ -133,16 +135,24 @@ public class SettingsPanel extends JPanel {
         backupButton.addActionListener(e -> createBackup());
 
         backupCard.add(backupButton);
+        backupCard.add(Box.createVerticalStrut(10));
+
+        JButton restoreButton = Theme.button("Restore Encrypted Backup");
+
+        restoreButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+        restoreButton.addActionListener(e -> restoreBackup());
+
+        backupCard.add(restoreButton);
 
         JLabel backupNote = new JLabel(
-                "Backup files use the .svb extension."
+                "Backup files use the .svb extension. Keep your backup password safe."
         );
 
         backupNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         backupNote.setForeground(Theme.MUTED);
         backupNote.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        backupCard.add(Box.createVerticalStrut(10));
+        backupCard.add(Box.createVerticalStrut(12));
         backupCard.add(backupNote);
 
         content.add(backupCard);
@@ -202,11 +212,19 @@ public class SettingsPanel extends JPanel {
         add(scrollPane, BorderLayout.CENTER);
     }
 
+    // CREATE ENCRYPTED BACKUP
     private void createBackup() {
 
         JFileChooser chooser = new JFileChooser();
 
         chooser.setDialogTitle("Create SecureVault Backup");
+        chooser.setFileFilter(
+                new FileNameExtensionFilter(
+                        "SecureVault Backup (*.svb)",
+                        "svb"
+                )
+        );
+
         chooser.setSelectedFile(
                 new File("SecureVault-Backup.svb")
         );
@@ -218,6 +236,15 @@ public class SettingsPanel extends JPanel {
         }
 
         Path destination = chooser.getSelectedFile().toPath();
+
+        if (!destination.getFileName().toString()
+                .toLowerCase()
+                .endsWith(".svb")) {
+
+            destination = destination.resolveSibling(
+                    destination.getFileName() + ".svb"
+            );
+        }
 
         if (Files.exists(destination)) {
             JOptionPane.showMessageDialog(
@@ -233,7 +260,9 @@ public class SettingsPanel extends JPanel {
         JPasswordField passwordField = new JPasswordField(20);
         JPasswordField confirmField = new JPasswordField(20);
 
-        JPanel passwordPanel = new JPanel(new GridLayout(0, 1, 5, 5));
+        JPanel passwordPanel = new JPanel(
+                new GridLayout(0, 1, 5, 5)
+        );
 
         passwordPanel.add(new JLabel("Create a backup password:"));
         passwordPanel.add(passwordField);
@@ -256,6 +285,8 @@ public class SettingsPanel extends JPanel {
         );
 
         if (passwordChoice != JOptionPane.OK_OPTION) {
+            passwordField.setText("");
+            confirmField.setText("");
             return;
         }
 
@@ -319,6 +350,139 @@ public class SettingsPanel extends JPanel {
         }
     }
 
+    // RESTORE ENCRYPTED BACKUP
+    private void restoreBackup() {
+
+        JFileChooser chooser = new JFileChooser();
+
+        chooser.setDialogTitle("Select SecureVault Backup");
+
+        chooser.setFileFilter(
+                new FileNameExtensionFilter(
+                        "SecureVault Backup (*.svb)",
+                        "svb"
+                )
+        );
+
+        int fileChoice = chooser.showOpenDialog(this);
+
+        if (fileChoice != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        Path backupFile = chooser.getSelectedFile().toPath();
+
+        // Validate the backup container before requesting its password.
+        try {
+
+            BackupService.validateBackupFile(backupFile);
+
+        } catch (Exception e) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "The selected backup file is invalid or damaged.\n\n" +
+                            e.getMessage(),
+                    "Invalid Backup",
+                    JOptionPane.ERROR_MESSAGE
+            );
+
+            return;
+        }
+
+        // Confirm database replacement.
+        int confirmation = JOptionPane.showConfirmDialog(
+                this,
+                "Restoring this backup will replace your current " +
+                        "SecureVault database.\n\n" +
+                        "Any changes made after this backup was created " +
+                        "may be lost.\n\n" +
+                        "Do you want to continue?",
+                "Confirm Database Restoration",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirmation != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        // Request backup password.
+        JPasswordField passwordField = new JPasswordField(20);
+
+        JPanel passwordPanel = new JPanel(
+                new GridLayout(0, 1, 5, 5)
+        );
+
+        passwordPanel.add(new JLabel(
+                "Enter the password used to protect this backup:"
+        ));
+
+        passwordPanel.add(passwordField);
+
+        int passwordChoice = JOptionPane.showConfirmDialog(
+                this,
+                passwordPanel,
+                "Unlock Encrypted Backup",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (passwordChoice != JOptionPane.OK_OPTION) {
+            passwordField.setText("");
+            return;
+        }
+
+        char[] backupPassword = passwordField.getPassword();
+
+        try {
+
+            if (backupPassword.length < 12) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "The backup password must contain at least " +
+                                "12 characters.",
+                        "Invalid Password",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            BackupService.restoreBackup(
+                    database,
+                    backupFile,
+                    backupPassword
+            );
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Your SecureVault database was restored successfully.\n\n" +
+                            "SecureVault will now return to the login screen.",
+                    "Backup Restored",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            // The database connection has been closed by restoreBackup().
+            // Return to login so the application opens a fresh connection.
+            lockAction.run();
+
+        } catch (Exception e) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Could not restore the backup.\n\n" +
+                            e.getMessage(),
+                    "Restore Failed",
+                    JOptionPane.ERROR_MESSAGE
+            );
+
+        } finally {
+
+            Arrays.fill(backupPassword, '\0');
+            passwordField.setText("");
+        }
+    }
+
     private JPanel createCard() {
 
         JPanel card = Theme.panel();
@@ -365,6 +529,7 @@ public class SettingsPanel extends JPanel {
         return row;
     }
 
+    // LOCK VAULT
     private void lockVault() {
 
         int choice = JOptionPane.showConfirmDialog(
