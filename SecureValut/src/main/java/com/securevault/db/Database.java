@@ -4,17 +4,21 @@ import com.securevault.crypto.CryptoService;
 import com.securevault.model.VaultEntry;
 
 import javax.crypto.SecretKey;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 
 public class Database {
 
     private final Connection connection;
+    private final Path databasePath;
 
     public Database() {
         try {
@@ -25,7 +29,7 @@ public class Database {
 
             Files.createDirectories(directory);
 
-            Path databasePath = directory.resolve("securevault.db");
+            databasePath = directory.resolve("securevault.db");
 
             connection = DriverManager.getConnection(
                     "jdbc:sqlite:" + databasePath
@@ -105,9 +109,7 @@ public class Database {
              )) {
 
             while (result.next()) {
-                if (column.equalsIgnoreCase(
-                        result.getString("name")
-                )) {
+                if (column.equalsIgnoreCase(result.getString("name"))) {
                     columnExists = true;
                     break;
                 }
@@ -146,42 +148,56 @@ public class Database {
         }
 
         if (isInitialized()) {
-            throw new IllegalStateException("Vault is already initialized.");
+            throw new IllegalStateException(
+                    "Vault is already initialized."
+            );
         }
 
         byte[] salt = CryptoService.generateSalt();
-        SecretKey key = CryptoService.deriveKey(password, salt);
 
-        String sql = """
-            INSERT INTO vault_settings (id, salt, verifier)
-            VALUES (1, ?, ?)
-        """;
+        try {
+            SecretKey key = CryptoService.deriveKey(password, salt);
 
-        try (PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+            String sql = """
+                INSERT INTO vault_settings (id, salt, verifier)
+                VALUES (1, ?, ?)
+            """;
 
-            statement.setString(
-                    1,
-                    Base64.getEncoder().encodeToString(salt)
-            );
+            try (PreparedStatement statement =
+                         connection.prepareStatement(sql)) {
 
-            statement.setString(
-                    2,
-                    CryptoService.createVerifier(key)
-            );
+                statement.setString(
+                        1,
+                        Base64.getEncoder().encodeToString(salt)
+                );
 
-            statement.executeUpdate();
+                statement.setString(
+                        2,
+                        CryptoService.createVerifier(key)
+                );
 
-            logEvent("Vault master password created");
+                statement.executeUpdate();
 
-            return key;
+                logEvent("Vault master password created");
+
+                return key;
+            }
 
         } catch (SQLException e) {
             throw databaseError(e);
+
+        } finally {
+            Arrays.fill(salt, (byte) 0);
         }
     }
 
     public SecretKey unlockMasterPassword(char[] password) {
+        if (password == null) {
+            throw new IllegalArgumentException(
+                    "Master password is required."
+            );
+        }
+
         String sql = """
             SELECT salt, verifier
             FROM vault_settings
@@ -201,19 +217,24 @@ public class Database {
                     result.getString("salt")
             );
 
-            String verifier = result.getString("verifier");
+            try {
+                String verifier = result.getString("verifier");
 
-            SecretKey key = CryptoService.deriveKey(password, salt);
+                SecretKey key = CryptoService.deriveKey(password, salt);
 
-            if (!CryptoService.verifyKey(key, verifier)) {
-                throw new SecurityException(
-                        "Incorrect master password."
-                );
+                if (!CryptoService.verifyKey(key, verifier)) {
+                    throw new SecurityException(
+                            "Incorrect master password."
+                    );
+                }
+
+                logEvent("Vault unlocked");
+
+                return key;
+
+            } finally {
+                Arrays.fill(salt, (byte) 0);
             }
-
-            logEvent("Vault unlocked");
-
-            return key;
 
         } catch (SQLException e) {
             throw databaseError(e);
@@ -312,9 +333,11 @@ public class Database {
             statement.setInt(7, entry.favorite() ? 1 : 0);
             statement.setLong(8, entry.id());
 
-            statement.executeUpdate();
+            int updated = statement.executeUpdate();
 
-            logEvent("Credential updated");
+            if (updated > 0) {
+                logEvent("Credential updated");
+            }
 
         } catch (SQLException e) {
             throw databaseError(e);
@@ -328,9 +351,12 @@ public class Database {
                      connection.prepareStatement(sql)) {
 
             statement.setLong(1, id);
-            statement.executeUpdate();
 
-            logEvent("Credential deleted");
+            int deleted = statement.executeUpdate();
+
+            if (deleted > 0) {
+                logEvent("Credential deleted");
+            }
 
         } catch (SQLException e) {
             throw databaseError(e);
@@ -424,10 +450,7 @@ public class Database {
     }
 
     /*
-     * Creates a consistent SQLite snapshot for encrypted backups.
-     *
-     * VACUUM INTO creates a separate database file without copying
-     * an actively used SQLite database file directly.
+     * Creates a consistent SQLite snapshot for backups.
      */
     public void createSnapshot(Path destination) {
 
@@ -463,10 +486,207 @@ public class Database {
         } catch (SQLException e) {
             throw databaseError(e);
 
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new IllegalStateException(
                     "Could not create the database snapshot.", e
             );
+        }
+    }
+
+    /*
+     * Validates a SQLite database before restoration.
+     */
+    private static void validateDatabaseFile(Path file)
+            throws IOException {
+
+        if (file == null || !Files.isRegularFile(file)) {
+            throw new IOException(
+                    "The database backup file does not exist."
+            );
+        }
+
+        try (Connection testConnection = DriverManager.getConnection(
+                "jdbc:sqlite:" + file.toAbsolutePath()
+        )) {
+
+            try (Statement statement = testConnection.createStatement();
+                 ResultSet result = statement.executeQuery(
+                         "PRAGMA integrity_check"
+                 )) {
+
+                boolean foundResult = false;
+
+                while (result.next()) {
+                    foundResult = true;
+
+                    if (!"ok".equalsIgnoreCase(result.getString(1))) {
+                        throw new IOException(
+                                "Database integrity check failed: "
+                                        + result.getString(1)
+                        );
+                    }
+                }
+
+                if (!foundResult) {
+                    throw new IOException(
+                            "Database integrity check returned no result."
+                    );
+                }
+            }
+
+            try (Statement statement = testConnection.createStatement()) {
+
+                statement.executeQuery(
+                        "SELECT id, salt, verifier FROM vault_settings LIMIT 0"
+                ).close();
+
+                statement.executeQuery("""
+                        SELECT title, username, password, url,
+                               category, notes, created_at
+                        FROM credentials
+                        LIMIT 0
+                        """).close();
+
+                statement.executeQuery(
+                        "SELECT timestamp, description FROM activity LIMIT 0"
+                ).close();
+
+                try (ResultSet result = statement.executeQuery(
+                        "SELECT COUNT(*) FROM vault_settings WHERE id = 1"
+                )) {
+
+                    if (!result.next() || result.getInt(1) != 1) {
+                        throw new IOException(
+                                "The backup does not contain an initialized vault."
+                        );
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new IOException(
+                    "The selected file is not a valid SecureVault database.",
+                    e
+            );
+        }
+    }
+
+    /*
+     * Installs a validated SQLite snapshot.
+     *
+     * The active connection is closed after validation.
+     * A new Database instance must be created afterward.
+     */
+    public void restoreSnapshot(Path snapshot) throws IOException {
+
+        if (snapshot == null) {
+            throw new IllegalArgumentException(
+                    "A database snapshot is required."
+            );
+        }
+
+        if (isClosed()) {
+            throw new IllegalStateException(
+                    "The database connection is already closed."
+            );
+        }
+
+        Path source = snapshot.toAbsolutePath().normalize();
+
+        if (source.equals(databasePath.toAbsolutePath().normalize())) {
+            throw new IOException(
+                    "Cannot restore the active database file directly."
+            );
+        }
+
+        validateDatabaseFile(source);
+
+        Path directory = databasePath.getParent();
+
+        Path stagedFile = Files.createTempFile(
+                directory,
+                ".securevault-restore-",
+                ".db"
+        );
+
+        Path rollbackFile = null;
+
+        boolean originalMoved = false;
+        boolean newDatabaseInstalled = false;
+
+        try {
+            Files.copy(
+                    source,
+                    stagedFile,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+
+            validateDatabaseFile(stagedFile);
+
+            connection.close();
+
+            rollbackFile = Files.createTempFile(
+                    directory,
+                    ".securevault-rollback-",
+                    ".db"
+            );
+
+            Files.deleteIfExists(rollbackFile);
+
+            if (Files.exists(databasePath)) {
+                moveFile(databasePath, rollbackFile);
+                originalMoved = true;
+            }
+
+            try {
+                moveFile(stagedFile, databasePath);
+                newDatabaseInstalled = true;
+
+            } catch (IOException installError) {
+
+                if (originalMoved) {
+                    moveFile(rollbackFile, databasePath);
+                    originalMoved = false;
+                }
+
+                throw installError;
+            }
+
+            if (rollbackFile != null) {
+                Files.deleteIfExists(rollbackFile);
+            }
+
+        } finally {
+
+            Files.deleteIfExists(stagedFile);
+
+            if (newDatabaseInstalled && rollbackFile != null) {
+                Files.deleteIfExists(rollbackFile);
+            }
+        }
+    }
+
+    private static void moveFile(Path source, Path destination)
+            throws IOException {
+
+        try {
+            Files.move(
+                    source,
+                    destination,
+                    StandardCopyOption.ATOMIC_MOVE
+            );
+
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+
+            Files.move(source, destination);
+        }
+    }
+
+    public boolean isClosed() {
+        try {
+            return connection.isClosed();
+        } catch (SQLException e) {
+            throw databaseError(e);
         }
     }
 
