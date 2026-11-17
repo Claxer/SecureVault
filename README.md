@@ -83,6 +83,9 @@ The project is currently under active development, with its core functionality a
 - **Manual Vault Locking** — Allows users to manually lock SecureVault through the Settings panel.
 - **Automatic Vault Locking** — Automatically locks the vault after five minutes of inactivity within the application.
 - **Application Information** — Displays application and security-related information.
+- **Security Information** — Displays information about the application's password hashing, encryption, and database storage.
+- **Backup Management** — Provides access to encrypted backup creation and restoration.
+- **Backup Restoration Integration** — Connects the backup restoration functionality directly to the Settings panel.
 
 ### Vault Management
 - **Vault Panel** — Provides a dedicated interface for accessing and organizing stored credentials.
@@ -98,7 +101,7 @@ The project is currently under active development, with its core functionality a
 - **Clipboard Auto-Clear** — Attempts to clear copied passwords from the clipboard after 30 seconds, provided the clipboard still contains the copied password.
 - **Main Application Navigation** — Uses a centralized main frame to organize the application's different panels.
 
-### Encrypted Backup
+### Encrypted Backup & Restoration
 - **Encrypted Backup Creation** — Allows users to create encrypted backup files of their SecureVault database.
 - **Separate Backup Password** — Uses a dedicated backup password instead of directly relying on the master password.
 - **Backup Password Validation** — Requires a minimum backup password length of 12 characters.
@@ -107,9 +110,17 @@ The project is currently under active development, with its core functionality a
 - **PBKDF2-HMAC-SHA256 Key Derivation** — Derives the backup encryption key from the supplied backup password.
 - **Random Salt and Nonce Generation** — Uses randomly generated cryptographic values during backup encryption.
 - **`.svb` Backup Format** — Stores encrypted backup information in a dedicated SecureVault backup file format.
-- **Backup File Validation** — Checks the backup file's structure and format before further processing.
-- **Backup Management Service** — Uses a dedicated `BackupService` class to handle backup creation and validation.
-- **Settings Integration** — Provides a Create Encrypted Backup option directly from the Settings panel.
+- **Backup File Validation** — Checks the backup file's structure, format, version, salt length, encrypted data length, and unexpected trailing data.
+- **Backup Decryption** — Decrypts backup contents using the correct backup password.
+- **Backup Password Verification** — Uses authenticated decryption to reject incorrect passwords or corrupted encrypted contents.
+- **Database Snapshot Validation** — Checks the restored SQLite database before replacing the active database.
+- **Database Integrity Checking** — Performs SQLite integrity checks and verifies required database tables and columns.
+- **Safe Database Restoration** — Uses a staged database file and rollback protection when replacing the existing database.
+- **Temporary File Cleanup** — Attempts to remove temporary snapshot and decrypted backup files after processing.
+- **Backup Management Service** — Uses a dedicated `BackupService` class to handle backup creation, validation, and restoration.
+- **Settings Integration** — Provides Create Encrypted Backup and Restore Encrypted Backup options directly from the Settings panel.
+- **Restoration Confirmation** — Warns users that restoring a backup replaces the current database before proceeding.
+- **Return to Login** — Returns the application to the login screen after successful database restoration so the restored database can be reopened.
 
 ### User Interface
 - **Login Interface** — Provides the initial authentication screen for accessing the vault.
@@ -119,7 +130,7 @@ The project is currently under active development, with its core functionality a
 - **History Panel** — Displays recorded vault activities.
 - **Category Panel** — Provides an interface for credential category organization.
 - **Security Panel** — Provides the security analysis interface.
-- **Settings Panel** — Provides an interface for application settings and encrypted backup creation.
+- **Settings Panel** — Provides an interface for application settings, encrypted backup creation, and backup restoration.
 - **Main Frame** — Serves as the primary application window and navigation structure.
 - **Theme Component** — Centralizes the application's visual theme.
 - **Vault Panel** — Provides the main credential management interface.
@@ -128,11 +139,11 @@ The project is currently under active development, with its core functionality a
 
 The following components are still under development or planned for future updates:
 
-- **Backup Restoration** — Allow users to restore their vault database from an encrypted `.svb` backup file using the correct backup password.
-- **Backup Integrity and Password Verification** — Add the complete restore-side decryption and authentication process to verify backup contents before restoration.
 - **Password Expiration Tracking** — Track password age and identify credentials that may need updating.
-- **Security Recommendations Expansion** — Introduce additional security checks and recommendations.
+- **Expanded Security Recommendations** — Introduce additional security checks and recommendations.
 - **Dashboard Improvements** — Expand dashboard statistics and security-related information.
+- **Recycle Bin and Credential Recovery** — Introduce a recovery system for accidentally deleted credentials.
+- **Secure Clipboard Improvements** — Further improve clipboard handling and sensitive-data cleanup.
 - **Additional Security Improvements** — Continue improving vault protection, password handling, backup management, and application security.
 
 ## Technologies Used
@@ -171,7 +182,7 @@ mvn clean compile
 mvn exec:java
 ```
 
-The complete desktop application is still under development, and not all planned features are currently integrated.
+The complete desktop application is still under development, and additional testing and improvements are ongoing.
 
 ## Current Project Structure
 
@@ -216,24 +227,32 @@ SecureVault is being developed gradually. Its current implementation includes th
 
 The Password Generator uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the same analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
 
-The Vault Management interface now supports credential favorites, filtering between all, favorite, and non-favorite entries, expanded credential searching, and sorting by different credential fields. Users can also copy saved passwords to the clipboard, with an automatic clearing attempt after 30 seconds.
+The Vault Management interface supports credential favorites, filtering between all, favorite, and non-favorite entries, expanded credential searching, and sorting by different credential fields. Users can also copy saved passwords to the clipboard, with an automatic clearing attempt after 30 seconds.
 
 Database updates also support the new favorite field while preserving existing credential records. New credential activity descriptions use generic action labels instead of including credential titles.
 
-The application also includes automatic vault locking after five minutes of inactivity within SecureVault, as well as a manual locking option through the Settings panel.
+The application includes automatic vault locking after five minutes of inactivity, as well as a manual locking option through the Settings panel.
 
-The Encrypted Backup feature introduces a dedicated backup service that creates a SQLite database snapshot and encrypts it using AES-256-GCM. Users can provide a separate backup password, and the resulting encrypted backup is saved in the `.svb` file format. Backup file structure validation is also included.
+The Encrypted Backup feature introduces a dedicated backup service that creates a SQLite database snapshot and encrypts it using AES-256-GCM. Users can provide a separate backup password, and the resulting encrypted backup is saved in the `.svb` file format.
+
+The backup system has also been expanded to support restoration. Users can select an existing `.svb` file, validate its structure, enter its backup password, and decrypt its contents. Before installation, the restored database is checked for SQLite integrity and required database structures. The restoration process uses a staged database file and rollback protection to help protect the existing database if installation fails.
+
+The Settings panel now includes both Create Encrypted Backup and Restore Encrypted Backup options. Successful restoration closes the current database connection and returns the application to the login screen so that the restored database can be reopened.
 
 The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Settings, Login, and Main Application Frame, along with a centralized Theme component.
 
-Backup restoration is still planned and has not yet been integrated.
-
-Additional components and improvements will be introduced in future updates as development continues.
+Further development will focus on improving the application's security, expanding its functionality, and testing existing features.
 
 ## Security Notice
 
-SecureVault is an educational project and has not undergone a professional security audit. Its encryption implementation and password strength analysis are intended for learning and development purposes. The password strength analyzer uses local heuristic checks and does not verify whether passwords have appeared in data breaches. Clipboard auto-clear is best-effort and cannot guarantee removal from operating system clipboard history or third-party clipboard managers. Encrypted backup creation has been added, but complete backup restoration is not yet implemented. Avoid storing real or sensitive credentials until the application has been thoroughly tested and reviewed.
+SecureVault is an educational project and has not undergone a professional security audit. Its encryption implementation and password strength analysis are intended for learning and development purposes. The password strength analyzer uses local heuristic checks and does not verify whether passwords have appeared in data breaches.
+
+Clipboard auto-clear is best-effort and cannot guarantee removal from operating system clipboard history or third-party clipboard managers.
+
+Encrypted backup creation and restoration have been implemented in the project code. However, backup recovery, database replacement, rollback behavior, and application login after restoration should be thoroughly tested before relying on the feature for important data.
+
+Avoid storing real or sensitive credentials until the application has been thoroughly tested and reviewed.
 
 ## Purpose
 
-This project is part of my journey as an Information Technology student. It serves as an opportunity to improve my Java programming skills while exploring database management, application security, encryption, and desktop software development.
+This project is part of my journey as an Information Technology student. It serves as an opportunity to improve my Java programming skills while exploring database management, application security, encryption, backup and recovery systems, and desktop software development.
