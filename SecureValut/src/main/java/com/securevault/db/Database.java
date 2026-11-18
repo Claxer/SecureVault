@@ -2,6 +2,7 @@ package com.securevault.db;
 
 import com.securevault.crypto.CryptoService;
 import com.securevault.model.VaultEntry;
+import com.securevault.model.SecureNote;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -51,6 +52,7 @@ public class Database {
     }
 
     private void createTables() throws SQLException {
+
         try (Statement statement = connection.createStatement()) {
 
             statement.execute("""
@@ -81,6 +83,20 @@ public class Database {
                     description TEXT NOT NULL
                 )
             """);
+
+            // Secure Notes table.
+            // Sensitive fields are stored as AES-GCM ciphertext.
+            statement.execute("""
+                CREATE TABLE IF NOT EXISTS secure_notes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    pinned INTEGER NOT NULL DEFAULT 0
+                )
+            """);
         }
     }
 
@@ -88,9 +104,16 @@ public class Database {
      * Adds new database columns without deleting existing records.
      */
     private void migrateDatabase() throws SQLException {
+
         addColumnIfMissing(
                 "credentials",
                 "favorite",
+                "INTEGER NOT NULL DEFAULT 0"
+        );
+
+        addColumnIfMissing(
+                "secure_notes",
+                "pinned",
                 "INTEGER NOT NULL DEFAULT 0"
         );
     }
@@ -128,6 +151,7 @@ public class Database {
     }
 
     public boolean isInitialized() {
+
         String sql = "SELECT COUNT(*) FROM vault_settings";
 
         try (Statement statement = connection.createStatement();
@@ -141,6 +165,7 @@ public class Database {
     }
 
     public SecretKey initializeMasterPassword(char[] password) {
+
         if (password == null || password.length < 10) {
             throw new IllegalArgumentException(
                     "Master password must contain at least 10 characters."
@@ -192,6 +217,7 @@ public class Database {
     }
 
     public SecretKey unlockMasterPassword(char[] password) {
+
         if (password == null) {
             throw new IllegalArgumentException(
                     "Master password is required."
@@ -241,7 +267,12 @@ public class Database {
         }
     }
 
+    // =========================================================
+    // CREDENTIAL MANAGEMENT
+    // =========================================================
+
     public List<VaultEntry> entries(SecretKey key) {
+
         List<VaultEntry> entries = new ArrayList<>();
 
         String sql = """
@@ -255,6 +286,7 @@ public class Database {
              ResultSet result = statement.executeQuery()) {
 
             while (result.next()) {
+
                 entries.add(new VaultEntry(
                         result.getLong("id"),
                         decryptField(result.getString("title"), key),
@@ -276,6 +308,7 @@ public class Database {
     }
 
     public void add(VaultEntry entry, SecretKey key) {
+
         String sql = """
             INSERT INTO credentials
             (
@@ -314,6 +347,7 @@ public class Database {
     }
 
     public void update(VaultEntry entry, SecretKey key) {
+
         String sql = """
             UPDATE credentials
             SET title = ?, username = ?, password = ?,
@@ -345,6 +379,7 @@ public class Database {
     }
 
     public void delete(long id) {
+
         String sql = "DELETE FROM credentials WHERE id = ?";
 
         try (PreparedStatement statement =
@@ -364,6 +399,7 @@ public class Database {
     }
 
     public void setFavorite(long id, boolean favorite) {
+
         String sql = """
             UPDATE credentials
             SET favorite = ?
@@ -391,7 +427,248 @@ public class Database {
         }
     }
 
+    // =========================================================
+    // SECURE NOTES MANAGEMENT
+    // =========================================================
+
+    /*
+     * Retrieves all notes and decrypts their sensitive fields.
+     * Pinned notes appear first.
+     */
+    public List<SecureNote> secureNotes(SecretKey key) {
+
+        List<SecureNote> notes = new ArrayList<>();
+
+        String sql = """
+            SELECT *
+            FROM secure_notes
+            ORDER BY pinned DESC, updated_at DESC, id DESC
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql);
+             ResultSet result = statement.executeQuery()) {
+
+            while (result.next()) {
+
+                notes.add(new SecureNote(
+                        result.getLong("id"),
+                        decryptField(result.getString("title"), key),
+                        decryptField(result.getString("content"), key),
+                        decryptField(result.getString("category"), key),
+                        result.getString("created_at"),
+                        result.getString("updated_at"),
+                        result.getInt("pinned") == 1
+                ));
+            }
+
+            return notes;
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /*
+     * Adds a new encrypted secure note.
+     */
+    public long addSecureNote(
+            SecureNote note,
+            SecretKey key
+    ) {
+
+        String sql = """
+            INSERT INTO secure_notes
+            (
+                title, content, category,
+                created_at, updated_at, pinned
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """;
+
+        String now = LocalDateTime.now().toString();
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(
+                    1,
+                    encryptField(note.title(), key)
+            );
+
+            statement.setString(
+                    2,
+                    encryptField(note.content(), key)
+            );
+
+            statement.setString(
+                    3,
+                    encryptField(note.category(), key)
+            );
+
+            statement.setString(4, now);
+            statement.setString(5, now);
+            statement.setInt(6, note.pinned() ? 1 : 0);
+
+            statement.executeUpdate();
+
+            long id;
+
+            try (Statement idStatement = connection.createStatement();
+                 ResultSet result = idStatement.executeQuery(
+                         "SELECT last_insert_rowid()"
+                 )) {
+
+                if (!result.next()) {
+                    throw new SQLException(
+                            "Could not retrieve the new note ID."
+                    );
+                }
+
+                id = result.getLong(1);
+            }
+
+            logEvent("Secure note created");
+
+            return id;
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /*
+     * Updates an existing encrypted note.
+     * The original creation timestamp is preserved.
+     */
+    public void updateSecureNote(
+            SecureNote note,
+            SecretKey key
+    ) {
+
+        String sql = """
+            UPDATE secure_notes
+            SET title = ?,
+                content = ?,
+                category = ?,
+                updated_at = ?,
+                pinned = ?
+            WHERE id = ?
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(
+                    1,
+                    encryptField(note.title(), key)
+            );
+
+            statement.setString(
+                    2,
+                    encryptField(note.content(), key)
+            );
+
+            statement.setString(
+                    3,
+                    encryptField(note.category(), key)
+            );
+
+            statement.setString(
+                    4,
+                    LocalDateTime.now().toString()
+            );
+
+            statement.setInt(
+                    5,
+                    note.pinned() ? 1 : 0
+            );
+
+            statement.setLong(6, note.id());
+
+            int updated = statement.executeUpdate();
+
+            if (updated > 0) {
+                logEvent("Secure note updated");
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /*
+     * Deletes a secure note.
+     */
+    public void deleteSecureNote(long id) {
+
+        String sql = """
+            DELETE FROM secure_notes
+            WHERE id = ?
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setLong(1, id);
+
+            int deleted = statement.executeUpdate();
+
+            if (deleted > 0) {
+                logEvent("Secure note deleted");
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /*
+     * Pins or unpins a secure note.
+     */
+    public void setSecureNotePinned(
+            long id,
+            boolean pinned
+    ) {
+
+        String sql = """
+            UPDATE secure_notes
+            SET pinned = ?,
+                updated_at = ?
+            WHERE id = ?
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(1, pinned ? 1 : 0);
+            statement.setString(
+                    2,
+                    LocalDateTime.now().toString()
+            );
+            statement.setLong(3, id);
+
+            int updated = statement.executeUpdate();
+
+            if (updated > 0) {
+                logEvent(
+                        pinned
+                                ? "Secure note pinned"
+                                : "Secure note unpinned"
+                );
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    // =========================================================
+    // ACTIVITY LOG
+    // =========================================================
+
     public List<String[]> activity() {
+
         List<String[]> records = new ArrayList<>();
 
         String sql = """
@@ -404,6 +681,7 @@ public class Database {
              ResultSet result = statement.executeQuery(sql)) {
 
             while (result.next()) {
+
                 records.add(new String[]{
                         result.getString("timestamp"),
                         result.getString("description")
@@ -418,6 +696,7 @@ public class Database {
     }
 
     public void logEvent(String description) {
+
         String sql = """
             INSERT INTO activity (timestamp, description)
             VALUES (?, ?)
@@ -426,8 +705,13 @@ public class Database {
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
-            statement.setString(1, LocalDateTime.now().toString());
+            statement.setString(
+                    1,
+                    LocalDateTime.now().toString()
+            );
+
             statement.setString(2, description);
+
             statement.executeUpdate();
 
         } catch (SQLException e) {
@@ -435,7 +719,12 @@ public class Database {
         }
     }
 
+    // =========================================================
+    // ENCRYPTION HELPERS
+    // =========================================================
+
     private String encryptField(String value, SecretKey key) {
+
         return CryptoService.encrypt(
                 value == null ? "" : value,
                 key
@@ -443,11 +732,16 @@ public class Database {
     }
 
     private String decryptField(String value, SecretKey key) {
+
         return CryptoService.decrypt(
                 value == null ? "" : value,
                 key
         );
     }
+
+    // =========================================================
+    // DATABASE BACKUP
+    // =========================================================
 
     /*
      * Creates a consistent SQLite snapshot for backups.
@@ -475,7 +769,8 @@ public class Database {
                 );
             }
 
-            String safePath = absolutePath.toString().replace("'", "''");
+            String safePath = absolutePath.toString()
+                    .replace("'", "''");
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute(
@@ -517,6 +812,7 @@ public class Database {
                 boolean foundResult = false;
 
                 while (result.next()) {
+
                     foundResult = true;
 
                     if (!"ok".equalsIgnoreCase(result.getString(1))) {
@@ -564,6 +860,7 @@ public class Database {
             }
 
         } catch (SQLException e) {
+
             throw new IOException(
                     "The selected file is not a valid SecureVault database.",
                     e
@@ -615,6 +912,7 @@ public class Database {
         boolean newDatabaseInstalled = false;
 
         try {
+
             Files.copy(
                     source,
                     stagedFile,
@@ -666,10 +964,13 @@ public class Database {
         }
     }
 
-    private static void moveFile(Path source, Path destination)
-            throws IOException {
+    private static void moveFile(
+            Path source,
+            Path destination
+    ) throws IOException {
 
         try {
+
             Files.move(
                     source,
                     destination,
@@ -683,24 +984,30 @@ public class Database {
     }
 
     public boolean isClosed() {
+
         try {
             return connection.isClosed();
+
         } catch (SQLException e) {
             throw databaseError(e);
         }
     }
 
     private IllegalStateException databaseError(SQLException e) {
+
         return new IllegalStateException(
                 "Database operation failed: " + e.getMessage(), e
         );
     }
 
     public void close() {
+
         try {
+
             if (!connection.isClosed()) {
                 connection.close();
             }
+
         } catch (SQLException e) {
             throw databaseError(e);
         }
