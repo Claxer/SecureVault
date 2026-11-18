@@ -11,6 +11,7 @@ The project is currently under active development, with its core functionality a
 - **Maven Configuration** — Manages project dependencies and build configuration.
 - **Database Integration** — Connects the application to a local SQLite database.
 - **Credential Data Model** — Defines the structure used to represent stored credentials.
+- **Secure Note Data Model** — Defines the structure used to represent stored secure notes.
 - **Database Migration** — Adds support for new database fields while preserving existing credential records.
 - **Database Snapshot Creation** — Uses SQLite's snapshot functionality to create a consistent copy of the vault database for backup purposes.
 
@@ -21,6 +22,7 @@ The project is currently under active development, with its core functionality a
 - **Byte-Array Encryption** — Supports encrypting binary data for encrypted backup files.
 - **Byte-Array Decryption** — Supports decrypting backup data using the corresponding backup password.
 - **Authenticated Encryption** — Uses AES-GCM authentication to help detect unauthorized modifications to encrypted backup contents.
+- **Secure Notes Encryption** — Encrypts note titles, contents, and categories before storing them in the database.
 
 ### Master Password Authentication
 - **Master Password Setup** — Provides the initial master password setup process.
@@ -77,6 +79,22 @@ The project is currently under active development, with its core functionality a
 - **Security Recommendations** — Provides improvement suggestions for individual credentials.
 - **Refreshable Security Analysis** — Allows users to refresh the security report using their saved credentials.
 
+### Secure Notes
+- **Secure Notes Panel** — Provides a dedicated interface for creating and managing private notes inside SecureVault.
+- **Create Secure Notes** — Allows users to create notes with a title, content, and category.
+- **Edit Secure Notes** — Supports modifying existing note titles, contents, and categories.
+- **Delete Secure Notes** — Allows users to remove notes they no longer need.
+- **Encrypted Note Storage** — Encrypts note titles, contents, and categories before they are stored in SQLite.
+- **Custom Note Categories** — Supports assigning categories to notes, including custom category names.
+- **Pin and Unpin Notes** — Allows users to pin important notes for easier access.
+- **Pinned Note Organization** — Displays pinned notes before unpinned notes.
+- **Secure Note Search** — Supports searching notes by title and category.
+- **Note Timestamps** — Tracks note creation and last-updated timestamps.
+- **Note Statistics** — Displays the total number of notes and pinned notes.
+- **Activity Logging** — Records secure note creation, editing, deletion, and pinning actions.
+- **Database Integration** — Stores secure notes in a dedicated `secure_notes` SQLite table.
+- **Backup Compatibility** — Secure notes are included in database snapshots used by the existing backup system.
+
 ### Settings
 - **Settings Panel** — Provides a dedicated interface for application preferences and configuration.
 - **Theme Management** — Includes a centralized theme component for maintaining the application's visual appearance.
@@ -121,6 +139,7 @@ The project is currently under active development, with its core functionality a
 - **Settings Integration** — Provides Create Encrypted Backup and Restore Encrypted Backup options directly from the Settings panel.
 - **Restoration Confirmation** — Warns users that restoring a backup replaces the current database before proceeding.
 - **Return to Login** — Returns the application to the login screen after successful database restoration so the restored database can be reopened.
+- **Secure Notes Backup Support** — Includes the secure notes database table and its stored encrypted data in SQLite database snapshots.
 
 ### User Interface
 - **Login Interface** — Provides the initial authentication screen for accessing the vault.
@@ -130,6 +149,8 @@ The project is currently under active development, with its core functionality a
 - **History Panel** — Displays recorded vault activities.
 - **Category Panel** — Provides an interface for credential category organization.
 - **Security Panel** — Provides the security analysis interface.
+- **Password Health Panel** — Provides an interface for reviewing password health information.
+- **Secure Notes Panel** — Provides the interface for creating, editing, searching, pinning, and deleting encrypted notes.
 - **Settings Panel** — Provides an interface for application settings, encrypted backup creation, and backup restoration.
 - **Main Frame** — Serves as the primary application window and navigation structure.
 - **Theme Component** — Centralizes the application's visual theme.
@@ -199,10 +220,12 @@ SecureVault/
 │                   ├── db/
 │                   │   └── Database.java
 │                   ├── model/
-│                   │   └── VaultEntry.java
+│                   │   ├── VaultEntry.java
+│                   │   └── SecureNote.java
 │                   ├── service/
 │                   │   ├── PasswordStrengthAnalyzer.java
-│                   │   └── BackupService.java
+│                   │   ├── BackupService.java
+│                   │   └── NoteService.java
 │                   └── ui/
 │                       ├── CategoriesPanel.java
 │                       ├── DashboardPanel.java
@@ -214,7 +237,9 @@ SecureVault/
 │                       ├── SecurityPanel.java
 │                       ├── SettingsPanel.java
 │                       ├── Theme.java
-│                       └── VaultPanel.java
+│                       ├── VaultPanel.java
+│                       ├── PasswordHealthPanel.java
+│                       └── SecureNotesPanel.java
 ├── pom.xml
 └── README.md
 ```
@@ -223,7 +248,7 @@ SecureVault/
 
 **Under Active Development**
 
-SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, and password security analysis.
+SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, password security analysis, encrypted backup and restoration, and secure note management.
 
 The Password Generator uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the same analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
 
@@ -237,9 +262,15 @@ The Encrypted Backup feature introduces a dedicated backup service that creates 
 
 The backup system has also been expanded to support restoration. Users can select an existing `.svb` file, validate its structure, enter its backup password, and decrypt its contents. Before installation, the restored database is checked for SQLite integrity and required database structures. The restoration process uses a staged database file and rollback protection to help protect the existing database if installation fails.
 
-The Settings panel now includes both Create Encrypted Backup and Restore Encrypted Backup options. Successful restoration closes the current database connection and returns the application to the login screen so that the restored database can be reopened.
+The Settings panel includes both Create Encrypted Backup and Restore Encrypted Backup options. Successful restoration closes the current database connection and returns the application to the login screen so that the restored database can be reopened.
 
-The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Settings, Login, and Main Application Frame, along with a centralized Theme component.
+The Secure Notes feature introduces a dedicated note management system integrated into the main application. Users can create, edit, search, pin, unpin, and delete private notes. Each note supports a title, content, and category, along with creation and last-updated timestamps.
+
+Secure note titles, contents, and categories are encrypted before being stored in the dedicated `secure_notes` SQLite table. The Notes interface also displays total and pinned note statistics, supports searching by title and category, and places pinned notes before unpinned notes. Note-related actions are recorded in the activity history.
+
+Secure Notes are stored in the same SQLite database used by the vault. As a result, the existing database snapshot mechanism includes the secure notes table and its encrypted data when creating database backups.
+
+The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Password Health, Secure Notes, Settings, Login, and Main Application Frame, along with a centralized Theme component.
 
 Further development will focus on improving the application's security, expanding its functionality, and testing existing features.
 
@@ -251,8 +282,10 @@ Clipboard auto-clear is best-effort and cannot guarantee removal from operating 
 
 Encrypted backup creation and restoration have been implemented in the project code. However, backup recovery, database replacement, rollback behavior, and application login after restoration should be thoroughly tested before relying on the feature for important data.
 
-Avoid storing real or sensitive credentials until the application has been thoroughly tested and reviewed.
+Secure Notes encrypts note titles, contents, and categories before database storage. However, the overall application and its security mechanisms still require thorough testing and review.
+
+Avoid storing real or sensitive credentials or private information until the application has been thoroughly tested and reviewed.
 
 ## Purpose
 
-This project is part of my journey as an Information Technology student. It serves as an opportunity to improve my Java programming skills while exploring database management, application security, encryption, backup and recovery systems, and desktop software development.
+This project is part of my journey as an Information Technology student. It serves as an opportunity to improve my Java programming skills while exploring database management, application security, encryption, backup and recovery systems, secure data storage, and desktop software development.
