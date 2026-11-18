@@ -30,8 +30,14 @@ public class MainFrame extends JFrame {
     private CategoriesPanel categoriesPanel;
     private HistoryPanel historyPanel;
     private SettingsPanel settingsPanel;
+    private PasswordHealthPanel passwordHealthPanel;
+    private SecureNotesPanel secureNotesPanel;
 
-    public MainFrame(Database database, SecretKey secretKey, Runnable lockAction) {
+    public MainFrame(
+            Database database,
+            SecretKey secretKey,
+            Runnable lockAction
+    ) {
 
         this.database = database;
         this.secretKey = secretKey;
@@ -80,6 +86,7 @@ public class MainFrame extends JFrame {
         resetInactivityTimer();
 
         addWindowListener(new java.awt.event.WindowAdapter() {
+
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
                 lockVault();
@@ -95,6 +102,10 @@ public class MainFrame extends JFrame {
         });
     }
 
+    // =========================================================
+    // INITIALIZE PANELS
+    // =========================================================
+
     private void initializePanels() {
 
         dashboardPanel = new DashboardPanel(database, secretKey);
@@ -105,6 +116,16 @@ public class MainFrame extends JFrame {
         historyPanel = new HistoryPanel(database);
         settingsPanel = new SettingsPanel(database, lockAction);
 
+        passwordHealthPanel = new PasswordHealthPanel(
+                database,
+                secretKey
+        );
+
+        secureNotesPanel = new SecureNotesPanel(
+                database,
+                secretKey
+        );
+
         contentPanel.add(dashboardPanel, "Dashboard");
         contentPanel.add(vaultPanel, "Vault");
         contentPanel.add(generatorPanel, "Generator");
@@ -112,23 +133,49 @@ public class MainFrame extends JFrame {
         contentPanel.add(categoriesPanel, "Categories");
         contentPanel.add(historyPanel, "History");
         contentPanel.add(settingsPanel, "Settings");
+        contentPanel.add(passwordHealthPanel, "Password Health");
+        contentPanel.add(secureNotesPanel, "Secure Notes");
     }
+
+    // =========================================================
+    // SIDEBAR
+    // =========================================================
 
     private void createSidebar() {
 
         JPanel sidebar = new JPanel();
+
         sidebar.setPreferredSize(new Dimension(220, 0));
         sidebar.setBackground(Theme.PANEL);
-        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBorder(BorderFactory.createEmptyBorder(25, 15, 20, 15));
+
+        sidebar.setLayout(new BoxLayout(
+                sidebar,
+                BoxLayout.Y_AXIS
+        ));
+
+        sidebar.setBorder(BorderFactory.createEmptyBorder(
+                25, 15, 20, 15
+        ));
 
         JLabel logo = new JLabel("SECUREVAULT");
-        logo.setFont(new Font("Segoe UI", Font.BOLD, 21));
+
+        logo.setFont(new Font(
+                "Segoe UI",
+                Font.BOLD,
+                21
+        ));
+
         logo.setForeground(Theme.LIGHT);
         logo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel subtitle = new JLabel("Password Manager");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+
+        subtitle.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                11
+        ));
+
         subtitle.setForeground(Theme.MUTED);
         subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -141,6 +188,8 @@ public class MainFrame extends JFrame {
                 "Dashboard",
                 "Vault",
                 "Generator",
+                "Password Health",
+                "Secure Notes",
                 "Security",
                 "Categories",
                 "History",
@@ -148,10 +197,20 @@ public class MainFrame extends JFrame {
         };
 
         for (String page : pages) {
+
             JButton button = Theme.button(page);
-            button.setHorizontalAlignment(SwingConstants.LEFT);
-            button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-            button.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            button.setHorizontalAlignment(
+                    SwingConstants.LEFT
+            );
+
+            button.setMaximumSize(
+                    new Dimension(Integer.MAX_VALUE, 42)
+            );
+
+            button.setAlignmentX(
+                    Component.LEFT_ALIGNMENT
+            );
 
             button.addActionListener(e -> showPage(page));
 
@@ -162,8 +221,17 @@ public class MainFrame extends JFrame {
         sidebar.add(Box.createVerticalGlue());
 
         JLabel status = new JLabel("● Vault Unlocked");
-        status.setForeground(new Color(90, 190, 130));
-        status.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+
+        status.setForeground(
+                new Color(90, 190, 130)
+        );
+
+        status.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                12
+        ));
+
         status.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         sidebar.add(status);
@@ -171,18 +239,42 @@ public class MainFrame extends JFrame {
         add(sidebar, BorderLayout.WEST);
     }
 
+    // =========================================================
+    // PAGE NAVIGATION
+    // =========================================================
+
     private void showPage(String page) {
 
         cardLayout.show(contentPanel, page);
 
         switch (page) {
-            case "Dashboard" -> dashboardPanel.refresh();
-            case "Vault" -> vaultPanel.refresh();
-            case "Security" -> securityPanel.refresh();
-            case "Categories" -> categoriesPanel.refresh();
-            case "History" -> historyPanel.refresh();
+
+            case "Dashboard" ->
+                    dashboardPanel.refresh();
+
+            case "Vault" ->
+                    vaultPanel.refresh();
+
+            case "Security" ->
+                    securityPanel.refresh();
+
+            case "Categories" ->
+                    categoriesPanel.refresh();
+
+            case "History" ->
+                    historyPanel.refresh();
+
+            case "Password Health" ->
+                    passwordHealthPanel.refresh();
+
+            case "Secure Notes" ->
+                    secureNotesPanel.refresh();
         }
     }
+
+    // =========================================================
+    // INACTIVITY DETECTION
+    // =========================================================
 
     private boolean belongsToVault(Object source) {
 
@@ -213,6 +305,10 @@ public class MainFrame extends JFrame {
         }
     }
 
+    // =========================================================
+    // MANUAL LOCK
+    // =========================================================
+
     private void lockVault() {
 
         if (locked) {
@@ -231,6 +327,10 @@ public class MainFrame extends JFrame {
         }
     }
 
+    // =========================================================
+    // AUTOMATIC LOCK
+    // =========================================================
+
     private void lockVaultAutomatically() {
 
         if (locked) {
@@ -247,6 +347,10 @@ public class MainFrame extends JFrame {
 
         closeAndLock();
     }
+
+    // =========================================================
+    // CLOSE AND RETURN TO LOGIN
+    // =========================================================
 
     private void closeAndLock() {
 
