@@ -51,6 +51,10 @@ public class Database {
         }
     }
 
+    // =========================================================
+    // TABLE CREATION
+    // =========================================================
+
     private void createTables() throws SQLException {
 
         try (Statement statement = connection.createStatement()) {
@@ -84,8 +88,6 @@ public class Database {
                 )
             """);
 
-            // Secure Notes table.
-            // Sensitive fields are stored as AES-GCM ciphertext.
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS secure_notes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,8 +102,13 @@ public class Database {
         }
     }
 
+    // =========================================================
+    // DATABASE MIGRATION
+    // =========================================================
+
     /*
      * Adds new database columns without deleting existing records.
+     * Safe to execute whenever SecureVault starts.
      */
     private void migrateDatabase() throws SQLException {
 
@@ -109,6 +116,12 @@ public class Database {
                 "credentials",
                 "favorite",
                 "INTEGER NOT NULL DEFAULT 0"
+        );
+
+        addColumnIfMissing(
+                "credentials",
+                "deleted_at",
+                "TEXT DEFAULT NULL"
         );
 
         addColumnIfMissing(
@@ -149,6 +162,10 @@ public class Database {
             }
         }
     }
+
+    // =========================================================
+    // MASTER PASSWORD MANAGEMENT
+    // =========================================================
 
     public boolean isInitialized() {
 
@@ -271,6 +288,9 @@ public class Database {
     // CREDENTIAL MANAGEMENT
     // =========================================================
 
+    /*
+     * Retrieves active credentials only.
+     */
     public List<VaultEntry> entries(SecretKey key) {
 
         List<VaultEntry> entries = new ArrayList<>();
@@ -278,6 +298,7 @@ public class Database {
         String sql = """
             SELECT *
             FROM credentials
+            WHERE deleted_at IS NULL
             ORDER BY id DESC
         """;
 
@@ -330,7 +351,7 @@ public class Database {
 
             statement.setString(
                     7,
-                    entry.createdAt().isBlank()
+                    entry.createdAt() == null || entry.createdAt().isBlank()
                             ? LocalDateTime.now().toString()
                             : entry.createdAt()
             );
@@ -353,6 +374,7 @@ public class Database {
             SET title = ?, username = ?, password = ?,
                 url = ?, category = ?, notes = ?, favorite = ?
             WHERE id = ?
+            AND deleted_at IS NULL
         """;
 
         try (PreparedStatement statement =
@@ -378,19 +400,32 @@ public class Database {
         }
     }
 
+    /*
+     * Soft delete: moves a credential into the Recycle Bin.
+     */
     public void delete(long id) {
 
-        String sql = "DELETE FROM credentials WHERE id = ?";
+        String sql = """
+            UPDATE credentials
+            SET deleted_at = ?
+            WHERE id = ?
+            AND deleted_at IS NULL
+        """;
 
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
-            statement.setLong(1, id);
+            statement.setString(
+                    1,
+                    LocalDateTime.now().toString()
+            );
+
+            statement.setLong(2, id);
 
             int deleted = statement.executeUpdate();
 
             if (deleted > 0) {
-                logEvent("Credential deleted");
+                logEvent("Credential moved to Recycle Bin");
             }
 
         } catch (SQLException e) {
@@ -404,6 +439,7 @@ public class Database {
             UPDATE credentials
             SET favorite = ?
             WHERE id = ?
+            AND deleted_at IS NULL
         """;
 
         try (PreparedStatement statement =
@@ -428,13 +464,177 @@ public class Database {
     }
 
     // =========================================================
-    // SECURE NOTES MANAGEMENT
+    // RECYCLE BIN MANAGEMENT
     // =========================================================
 
     /*
-     * Retrieves all notes and decrypts their sensitive fields.
-     * Pinned notes appear first.
+     * Retrieves deleted credentials.
+     * Sensitive fields remain encrypted in SQLite.
      */
+    public List<VaultEntry> deletedEntries(SecretKey key) {
+
+        List<VaultEntry> entries = new ArrayList<>();
+
+        String sql = """
+            SELECT *
+            FROM credentials
+            WHERE deleted_at IS NOT NULL
+            ORDER BY deleted_at DESC, id DESC
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql);
+             ResultSet result = statement.executeQuery()) {
+
+            while (result.next()) {
+
+                entries.add(new VaultEntry(
+                        result.getLong("id"),
+                        decryptField(result.getString("title"), key),
+                        decryptField(result.getString("username"), key),
+                        decryptField(result.getString("password"), key),
+                        decryptField(result.getString("url"), key),
+                        decryptField(result.getString("category"), key),
+                        decryptField(result.getString("notes"), key),
+                        result.getString("created_at"),
+                        result.getInt("favorite") == 1
+                ));
+            }
+
+            return entries;
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    public String deletedAt(long id) {
+
+        String sql = """
+            SELECT deleted_at
+            FROM credentials
+            WHERE id = ?
+            AND deleted_at IS NOT NULL
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setLong(1, id);
+
+            try (ResultSet result = statement.executeQuery()) {
+
+                return result.next()
+                        ? result.getString("deleted_at")
+                        : null;
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /*
+     * Restores a credential from the Recycle Bin.
+     */
+    public void restore(long id) {
+
+        String sql = """
+            UPDATE credentials
+            SET deleted_at = NULL
+            WHERE id = ?
+            AND deleted_at IS NOT NULL
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setLong(1, id);
+
+            int restored = statement.executeUpdate();
+
+            if (restored > 0) {
+                logEvent("Credential restored from Recycle Bin");
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /*
+     * Permanently deletes one credential from the Recycle Bin.
+     */
+    public void permanentlyDelete(long id) {
+
+        String sql = """
+            DELETE FROM credentials
+            WHERE id = ?
+            AND deleted_at IS NOT NULL
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setLong(1, id);
+
+            int deleted = statement.executeUpdate();
+
+            if (deleted > 0) {
+                logEvent("Credential permanently deleted");
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /*
+     * Permanently deletes all credentials in the Recycle Bin.
+     */
+    public void emptyRecycleBin() {
+
+        String sql = """
+            DELETE FROM credentials
+            WHERE deleted_at IS NOT NULL
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            int deleted = statement.executeUpdate();
+
+            if (deleted > 0) {
+                logEvent("Recycle Bin permanently emptied");
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    public int recycleBinCount() {
+
+        String sql = """
+            SELECT COUNT(*)
+            FROM credentials
+            WHERE deleted_at IS NOT NULL
+        """;
+
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(sql)) {
+
+            return result.next() ? result.getInt(1) : 0;
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    // =========================================================
+    // SECURE NOTES MANAGEMENT
+    // =========================================================
+
     public List<SecureNote> secureNotes(SecretKey key) {
 
         List<SecureNote> notes = new ArrayList<>();
@@ -469,9 +669,6 @@ public class Database {
         }
     }
 
-    /*
-     * Adds a new encrypted secure note.
-     */
     public long addSecureNote(
             SecureNote note,
             SecretKey key
@@ -491,21 +688,9 @@ public class Database {
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
-            statement.setString(
-                    1,
-                    encryptField(note.title(), key)
-            );
-
-            statement.setString(
-                    2,
-                    encryptField(note.content(), key)
-            );
-
-            statement.setString(
-                    3,
-                    encryptField(note.category(), key)
-            );
-
+            statement.setString(1, encryptField(note.title(), key));
+            statement.setString(2, encryptField(note.content(), key));
+            statement.setString(3, encryptField(note.category(), key));
             statement.setString(4, now);
             statement.setString(5, now);
             statement.setInt(6, note.pinned() ? 1 : 0);
@@ -537,10 +722,6 @@ public class Database {
         }
     }
 
-    /*
-     * Updates an existing encrypted note.
-     * The original creation timestamp is preserved.
-     */
     public void updateSecureNote(
             SecureNote note,
             SecretKey key
@@ -559,31 +740,11 @@ public class Database {
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
-            statement.setString(
-                    1,
-                    encryptField(note.title(), key)
-            );
-
-            statement.setString(
-                    2,
-                    encryptField(note.content(), key)
-            );
-
-            statement.setString(
-                    3,
-                    encryptField(note.category(), key)
-            );
-
-            statement.setString(
-                    4,
-                    LocalDateTime.now().toString()
-            );
-
-            statement.setInt(
-                    5,
-                    note.pinned() ? 1 : 0
-            );
-
+            statement.setString(1, encryptField(note.title(), key));
+            statement.setString(2, encryptField(note.content(), key));
+            statement.setString(3, encryptField(note.category(), key));
+            statement.setString(4, LocalDateTime.now().toString());
+            statement.setInt(5, note.pinned() ? 1 : 0);
             statement.setLong(6, note.id());
 
             int updated = statement.executeUpdate();
@@ -597,9 +758,6 @@ public class Database {
         }
     }
 
-    /*
-     * Deletes a secure note.
-     */
     public void deleteSecureNote(long id) {
 
         String sql = """
@@ -623,9 +781,6 @@ public class Database {
         }
     }
 
-    /*
-     * Pins or unpins a secure note.
-     */
     public void setSecureNotePinned(
             long id,
             boolean pinned
@@ -642,10 +797,12 @@ public class Database {
                      connection.prepareStatement(sql)) {
 
             statement.setInt(1, pinned ? 1 : 0);
+
             statement.setString(
                     2,
                     LocalDateTime.now().toString()
             );
+
             statement.setLong(3, id);
 
             int updated = statement.executeUpdate();
@@ -743,9 +900,6 @@ public class Database {
     // DATABASE BACKUP
     // =========================================================
 
-    /*
-     * Creates a consistent SQLite snapshot for backups.
-     */
     public void createSnapshot(Path destination) {
 
         if (destination == null) {
@@ -788,9 +942,6 @@ public class Database {
         }
     }
 
-    /*
-     * Validates a SQLite database before restoration.
-     */
     private static void validateDatabaseFile(Path file)
             throws IOException {
 
@@ -838,13 +989,18 @@ public class Database {
 
                 statement.executeQuery("""
                         SELECT title, username, password, url,
-                               category, notes, created_at
+                               category, notes, created_at,
+                               favorite, deleted_at
                         FROM credentials
                         LIMIT 0
                         """).close();
 
                 statement.executeQuery(
                         "SELECT timestamp, description FROM activity LIMIT 0"
+                ).close();
+
+                statement.executeQuery(
+                        "SELECT title, content, category, created_at, updated_at, pinned FROM secure_notes LIMIT 0"
                 ).close();
 
                 try (ResultSet result = statement.executeQuery(
@@ -868,12 +1024,6 @@ public class Database {
         }
     }
 
-    /*
-     * Installs a validated SQLite snapshot.
-     *
-     * The active connection is closed after validation.
-     * A new Database instance must be created afterward.
-     */
     public void restoreSnapshot(Path snapshot) throws IOException {
 
         if (snapshot == null) {
@@ -982,6 +1132,10 @@ public class Database {
             Files.move(source, destination);
         }
     }
+
+    // =========================================================
+    // CONNECTION MANAGEMENT
+    // =========================================================
 
     public boolean isClosed() {
 
