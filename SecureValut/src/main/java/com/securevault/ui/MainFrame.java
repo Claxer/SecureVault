@@ -6,10 +6,17 @@ import javax.crypto.SecretKey;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.AWTEventListener;
+import java.util.prefs.Preferences;
 
 public class MainFrame extends JFrame {
 
-    private static final int AUTO_LOCK_DELAY = 5 * 60 * 1000;
+    private static final Preferences AUTO_LOCK_PREFS =
+            Preferences.userNodeForPackage(SettingsPanel.class);
+
+    private static final String AUTO_LOCK_KEY = "autoLockMinutes";
+    private static final int DEFAULT_AUTO_LOCK = 5;
+
+    private int autoLockMinutes;
 
     private final Database database;
     private final SecretKey secretKey;
@@ -43,6 +50,11 @@ public class MainFrame extends JFrame {
         this.secretKey = secretKey;
         this.lockAction = lockAction;
 
+        this.autoLockMinutes = AUTO_LOCK_PREFS.getInt(
+                AUTO_LOCK_KEY,
+                DEFAULT_AUTO_LOCK
+        );
+
         setTitle("SecureVault");
         setSize(1200, 760);
         setMinimumSize(new Dimension(1000, 650));
@@ -63,11 +75,15 @@ public class MainFrame extends JFrame {
         showPage("Dashboard");
 
         inactivityTimer = new Timer(
-                AUTO_LOCK_DELAY,
+                Math.max(1000, autoLockMinutes * 60 * 1000),
                 e -> lockVaultAutomatically()
         );
 
         inactivityTimer.setRepeats(false);
+
+        if (autoLockMinutes == 0) {
+            inactivityTimer.stop();
+        }
 
         activityListener = event -> {
             if (belongsToVault(event.getSource())) {
@@ -114,7 +130,12 @@ public class MainFrame extends JFrame {
         securityPanel = new SecurityPanel(database, secretKey);
         categoriesPanel = new CategoriesPanel(database, secretKey);
         historyPanel = new HistoryPanel(database);
-        settingsPanel = new SettingsPanel(database, lockAction);
+
+        settingsPanel = new SettingsPanel(
+                database,
+                lockAction,
+                this::setAutoLockMinutes
+        );
 
         passwordHealthPanel = new PasswordHealthPanel(
                 database,
@@ -300,7 +321,42 @@ public class MainFrame extends JFrame {
 
     private void resetInactivityTimer() {
 
-        if (!locked && inactivityTimer != null) {
+        if (locked || inactivityTimer == null) {
+            return;
+        }
+
+        if (autoLockMinutes <= 0) {
+            inactivityTimer.stop();
+            return;
+        }
+
+        inactivityTimer.setInitialDelay(
+                autoLockMinutes * 60 * 1000
+        );
+
+        inactivityTimer.restart();
+    }
+
+    private void setAutoLockMinutes(int minutes) {
+
+        if (minutes < 0) {
+            return;
+        }
+
+        autoLockMinutes = minutes;
+
+        if (locked || inactivityTimer == null) {
+            return;
+        }
+
+        inactivityTimer.stop();
+
+        if (autoLockMinutes > 0) {
+
+            inactivityTimer.setInitialDelay(
+                    autoLockMinutes * 60 * 1000
+            );
+
             inactivityTimer.restart();
         }
     }
