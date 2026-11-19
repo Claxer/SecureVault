@@ -12,7 +12,8 @@ The project is currently under active development, with its core functionality a
 - **Database Integration** — Connects the application to a local SQLite database.
 - **Credential Data Model** — Defines the structure used to represent stored credentials.
 - **Secure Note Data Model** — Defines the structure used to represent stored secure notes.
-- **Database Migration** — Adds support for new database fields while preserving existing credential records.
+- **Database Migration** — Adds support for new database fields, including favorites and soft deletion, while preserving existing credential records.
+- **Automatic Schema Updates** — Checks whether database columns exist before adding them, helping maintain compatibility with existing databases.
 - **Database Snapshot Creation** — Uses SQLite's snapshot functionality to create a consistent copy of the vault database for backup purposes.
 
 ### Encryption & Security
@@ -23,6 +24,7 @@ The project is currently under active development, with its core functionality a
 - **Byte-Array Decryption** — Supports decrypting backup data using the corresponding backup password.
 - **Authenticated Encryption** — Uses AES-GCM authentication to help detect unauthorized modifications to encrypted backup contents.
 - **Secure Notes Encryption** — Encrypts note titles, contents, and categories before storing them in the database.
+- **Encrypted Credential Fields** — Encrypts credential titles, usernames, passwords, URLs, categories, and notes before database storage.
 
 ### Master Password Authentication
 - **Master Password Setup** — Provides the initial master password setup process.
@@ -34,6 +36,9 @@ The project is currently under active development, with its core functionality a
 - **Category Statistics** — Shows the number of credential categories.
 - **Activity Overview** — Displays activity record statistics.
 - **Recent Credentials** — Shows recently added credential entries.
+- **Favorites Statistics** — Adds a dashboard overview of favorited credentials.
+- **Favorite Credentials Section** — Provides quick access to selected favorite credentials.
+- **Quick Access Actions** — Allows users to view favorite credential details and copy passwords through the dashboard.
 
 ### Credential Entry Form
 - **Credential Input Form** — Provides fields for account titles, usernames, passwords, URLs, categories, and notes.
@@ -69,6 +74,7 @@ The project is currently under active development, with its core functionality a
 - **Activity Descriptions** — Shows information about logged actions.
 - **History Interface** — Provides a dedicated page for reviewing activity records.
 - **Generic Activity Logging** — Records credential-related actions without including credential titles in new activity descriptions.
+- **Recycle Bin Activity Logging** — Records credential restoration, permanent deletion, and Recycle Bin emptying actions.
 
 ### Security Management
 - **Security Panel** — Provides a dedicated interface for reviewing password security.
@@ -99,7 +105,7 @@ The project is currently under active development, with its core functionality a
 - **Settings Panel** — Provides a dedicated interface for application preferences and configuration.
 - **Theme Management** — Includes a centralized theme component for maintaining the application's visual appearance.
 - **Manual Vault Locking** — Allows users to manually lock SecureVault through the Settings panel.
-- **Automatic Vault Locking** — Automatically locks the vault after five minutes of inactivity within the application.
+- **Automatic Vault Locking** — Automatically locks the vault after the configured period of inactivity, with a default timeout of five minutes.
 - **Application Information** — Displays application and security-related information.
 - **Security Information** — Displays information about the application's password hashing, encryption, and database storage.
 - **Backup Management** — Provides access to encrypted backup creation and restoration.
@@ -114,10 +120,25 @@ The project is currently under active development, with its core functionality a
 - **Favorite Indicators** — Displays favorite status directly in the credential table.
 - **View Credentials** — Allows users to view saved credential details.
 - **Edit Credentials** — Supports modifying existing credential entries.
-- **Delete Credentials** — Allows users to remove saved credentials.
+- **Soft Delete Support** — Moves deleted credentials into the Recycle Bin instead of immediately removing them from the database.
 - **Copy Password** — Allows users to copy a saved credential's password to the clipboard.
 - **Clipboard Auto-Clear** — Attempts to clear copied passwords from the clipboard after 30 seconds, provided the clipboard still contains the copied password.
 - **Main Application Navigation** — Uses a centralized main frame to organize the application's different panels.
+
+### Recycle Bin & Credential Recovery
+- **Soft Deletion** — Marks deleted credentials with a deletion timestamp instead of immediately removing their database records.
+- **Deleted Credential Tracking** — Stores the date and time when a credential is moved to the Recycle Bin.
+- **Active Credential Filtering** — Excludes deleted credentials from the normal vault retrieval query.
+- **Deleted Credential Retrieval** — Provides a database method for retrieving credentials currently in the Recycle Bin.
+- **Credential Restoration** — Supports restoring deleted credentials by clearing their deletion timestamp.
+- **Permanent Deletion** — Supports permanently removing individual credentials from the Recycle Bin.
+- **Empty Recycle Bin** — Provides a database operation for permanently deleting all credentials in the Recycle Bin.
+- **Recycle Bin Count** — Provides a database method for counting deleted credentials.
+- **Favorite Preservation** — Retains the original favorite status when credentials are moved into and restored from the Recycle Bin.
+- **Activity Logging** — Records restoration and permanent deletion actions.
+- **Database Migration Support** — Adds the `deleted_at` column to existing credential tables without requiring existing credentials to be deleted.
+
+*The database functionality for the Recycle Bin has been added. Its dedicated user interface and main application navigation integration are still being developed.*
 
 ### Encrypted Backup & Restoration
 - **Encrypted Backup Creation** — Allows users to create encrypted backup files of their SecureVault database.
@@ -140,6 +161,7 @@ The project is currently under active development, with its core functionality a
 - **Restoration Confirmation** — Warns users that restoring a backup replaces the current database before proceeding.
 - **Return to Login** — Returns the application to the login screen after successful database restoration so the restored database can be reopened.
 - **Secure Notes Backup Support** — Includes the secure notes database table and its stored encrypted data in SQLite database snapshots.
+- **Recycle Bin Backup Support** — Includes deleted credential records and their deletion timestamps in database snapshots.
 
 ### User Interface
 - **Login Interface** — Provides the initial authentication screen for accessing the vault.
@@ -160,10 +182,13 @@ The project is currently under active development, with its core functionality a
 
 The following components are still under development or planned for future updates:
 
+- **Recycle Bin Interface** — Create a dedicated panel for displaying deleted credentials.
+- **Credential Recovery Interface** — Add restore and permanent deletion controls to the Recycle Bin panel.
+- **Empty Recycle Bin Confirmation** — Add a confirmation dialog before permanently deleting all recycled credentials.
+- **Recycle Bin Navigation** — Integrate the Recycle Bin into the main application navigation.
 - **Password Expiration Tracking** — Track password age and identify credentials that may need updating.
 - **Expanded Security Recommendations** — Introduce additional security checks and recommendations.
 - **Dashboard Improvements** — Expand dashboard statistics and security-related information.
-- **Recycle Bin and Credential Recovery** — Introduce a recovery system for accidentally deleted credentials.
 - **Secure Clipboard Improvements** — Further improve clipboard handling and sensitive-data cleanup.
 - **Additional Security Improvements** — Continue improving vault protection, password handling, backup management, and application security.
 
@@ -254,9 +279,11 @@ The Password Generator uses a dedicated Password Strength Analyzer to evaluate g
 
 The Vault Management interface supports credential favorites, filtering between all, favorite, and non-favorite entries, expanded credential searching, and sorting by different credential fields. Users can also copy saved passwords to the clipboard, with an automatic clearing attempt after 30 seconds.
 
-Database updates also support the new favorite field while preserving existing credential records. New credential activity descriptions use generic action labels instead of including credential titles.
+The Dashboard has also been expanded with favorite credential statistics and a Quick Access section for viewing and accessing favorite credentials.
 
-The application includes automatic vault locking after five minutes of inactivity, as well as a manual locking option through the Settings panel.
+Database updates support favorite credentials and soft deletion while preserving existing credential records. The database migration checks for missing columns and adds them without intentionally replacing existing data. New credential activity descriptions use generic action labels instead of including credential titles.
+
+The application includes automatic vault locking after the configured period of inactivity, with a default timeout of five minutes, as well as a manual locking option through the Settings panel.
 
 The Encrypted Backup feature introduces a dedicated backup service that creates a SQLite database snapshot and encrypts it using AES-256-GCM. Users can provide a separate backup password, and the resulting encrypted backup is saved in the `.svb` file format.
 
@@ -270,9 +297,13 @@ Secure note titles, contents, and categories are encrypted before being stored i
 
 Secure Notes are stored in the same SQLite database used by the vault. As a result, the existing database snapshot mechanism includes the secure notes table and its encrypted data when creating database backups.
 
+The latest database update introduces the foundation for a Recycle Bin system. Instead of immediately deleting credentials, the database now supports soft deletion by recording a deletion timestamp. Deleted credentials can be retrieved separately, restored, permanently deleted individually, or permanently removed together through an Empty Recycle Bin database operation. The normal credential retrieval method excludes deleted entries, while the original credential information and favorite status are retained during soft deletion.
+
+The Recycle Bin database operations are implemented, but the dedicated Recycle Bin interface and navigation integration are still in progress.
+
 The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Password Health, Secure Notes, Settings, Login, and Main Application Frame, along with a centralized Theme component.
 
-Further development will focus on improving the application's security, expanding its functionality, and testing existing features.
+Further development will focus on completing the Recycle Bin interface, improving the application's security, expanding its functionality, and testing existing features.
 
 ## Security Notice
 
@@ -283,6 +314,8 @@ Clipboard auto-clear is best-effort and cannot guarantee removal from operating 
 Encrypted backup creation and restoration have been implemented in the project code. However, backup recovery, database replacement, rollback behavior, and application login after restoration should be thoroughly tested before relying on the feature for important data.
 
 Secure Notes encrypts note titles, contents, and categories before database storage. However, the overall application and its security mechanisms still require thorough testing and review.
+
+Recycle Bin functionality currently has database-level support. Its interface and complete user workflow still need to be implemented and tested.
 
 Avoid storing real or sensitive credentials or private information until the application has been thoroughly tested and reviewed.
 
