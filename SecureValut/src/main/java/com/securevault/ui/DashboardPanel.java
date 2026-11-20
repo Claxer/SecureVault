@@ -9,6 +9,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -29,6 +30,7 @@ public class DashboardPanel extends JPanel {
 
     private JPanel recentEntriesPanel;
     private JPanel favoriteEntriesPanel;
+    private JPanel recentActivityPanel;
 
     private JButton refreshButton;
 
@@ -54,41 +56,24 @@ public class DashboardPanel extends JPanel {
     private void createHeader() {
 
         JPanel header = new JPanel(new BorderLayout());
-
         header.setBackground(Theme.BG);
 
         JPanel titles = new JPanel();
-
-        titles.setLayout(
-                new BoxLayout(titles, BoxLayout.Y_AXIS)
-        );
-
+        titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
         titles.setBackground(Theme.BG);
 
         JLabel title = new JLabel("Dashboard");
-
-        title.setFont(
-                new Font("Segoe UI", Font.BOLD, 28)
-        );
-
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(Theme.LIGHT);
 
         JLabel subtitle = new JLabel(
                 "Overview of your password vault and account activity."
         );
-
-        subtitle.setFont(
-                new Font("Segoe UI", Font.PLAIN, 13)
-        );
-
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitle.setForeground(Theme.MUTED);
 
         dateLabel = new JLabel(getCurrentDate());
-
-        dateLabel.setFont(
-                new Font("Segoe UI", Font.PLAIN, 12)
-        );
-
+        dateLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         dateLabel.setForeground(Theme.ACCENT);
 
         titles.add(title);
@@ -98,17 +83,11 @@ public class DashboardPanel extends JPanel {
         titles.add(dateLabel);
 
         refreshButton = new JButton("Refresh");
-
-        refreshButton.setFont(
-                new Font("Segoe UI", Font.PLAIN, 12)
-        );
-
+        refreshButton.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         refreshButton.setFocusPainted(false);
-
         refreshButton.setCursor(
                 Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         );
-
         refreshButton.addActionListener(e -> refresh());
 
         header.add(titles, BorderLayout.WEST);
@@ -131,11 +110,9 @@ public class DashboardPanel extends JPanel {
     private void createDashboardContent() {
 
         JPanel content = new JPanel();
-
         content.setLayout(
                 new BoxLayout(content, BoxLayout.Y_AXIS)
         );
-
         content.setBackground(Theme.BG);
 
         // =====================================================
@@ -147,7 +124,6 @@ public class DashboardPanel extends JPanel {
         );
 
         statistics.setBackground(Theme.BG);
-
         statistics.setMaximumSize(
                 new Dimension(Integer.MAX_VALUE, 120)
         );
@@ -189,11 +165,7 @@ public class DashboardPanel extends JPanel {
         // =====================================================
 
         JPanel favoritesCard = Theme.panel();
-
-        favoritesCard.setLayout(
-                new BorderLayout(0, 15)
-        );
-
+        favoritesCard.setLayout(new BorderLayout(0, 15));
         favoritesCard.setBorder(
                 new EmptyBorder(20, 20, 20, 20)
         );
@@ -201,29 +173,23 @@ public class DashboardPanel extends JPanel {
         JLabel favoritesTitle = new JLabel(
                 "Favorite Credentials"
         );
-
         favoritesTitle.setFont(
                 new Font("Segoe UI", Font.BOLD, 18)
         );
-
         favoritesTitle.setForeground(Theme.LIGHT);
 
         JLabel favoritesSubtitle = new JLabel(
                 "Quick access to your starred accounts."
         );
-
         favoritesSubtitle.setFont(
                 new Font("Segoe UI", Font.PLAIN, 12)
         );
-
         favoritesSubtitle.setForeground(Theme.MUTED);
 
         JPanel favoritesHeader = new JPanel();
-
         favoritesHeader.setLayout(
                 new BoxLayout(favoritesHeader, BoxLayout.Y_AXIS)
         );
-
         favoritesHeader.setBackground(Theme.PANEL);
 
         favoritesHeader.add(favoritesTitle);
@@ -231,14 +197,12 @@ public class DashboardPanel extends JPanel {
         favoritesHeader.add(favoritesSubtitle);
 
         favoriteEntriesPanel = new JPanel();
-
         favoriteEntriesPanel.setLayout(
                 new BoxLayout(
                         favoriteEntriesPanel,
                         BoxLayout.Y_AXIS
                 )
         );
-
         favoriteEntriesPanel.setBackground(Theme.PANEL);
 
         favoritesCard.add(
@@ -259,39 +223,29 @@ public class DashboardPanel extends JPanel {
         // =====================================================
 
         JPanel recentCard = Theme.panel();
-
-        recentCard.setLayout(
-                new BorderLayout(0, 15)
-        );
-
+        recentCard.setLayout(new BorderLayout(0, 15));
         recentCard.setBorder(
                 new EmptyBorder(20, 20, 20, 20)
         );
 
         JLabel recentTitle = new JLabel("Recently Added");
-
         recentTitle.setFont(
                 new Font("Segoe UI", Font.BOLD, 18)
         );
-
         recentTitle.setForeground(Theme.LIGHT);
 
         JLabel recentSubtitle = new JLabel(
                 "Your latest saved credentials."
         );
-
         recentSubtitle.setFont(
                 new Font("Segoe UI", Font.PLAIN, 12)
         );
-
         recentSubtitle.setForeground(Theme.MUTED);
 
         JPanel recentHeader = new JPanel();
-
         recentHeader.setLayout(
                 new BoxLayout(recentHeader, BoxLayout.Y_AXIS)
         );
-
         recentHeader.setBackground(Theme.PANEL);
 
         recentHeader.add(recentTitle);
@@ -299,38 +253,82 @@ public class DashboardPanel extends JPanel {
         recentHeader.add(recentSubtitle);
 
         recentEntriesPanel = new JPanel();
-
         recentEntriesPanel.setLayout(
                 new BoxLayout(
                         recentEntriesPanel,
                         BoxLayout.Y_AXIS
                 )
         );
-
         recentEntriesPanel.setBackground(Theme.PANEL);
 
-        recentCard.add(
-                recentHeader,
+        recentCard.add(recentHeader, BorderLayout.NORTH);
+        recentCard.add(recentEntriesPanel, BorderLayout.CENTER);
+
+        content.add(recentCard);
+        content.add(Box.createVerticalStrut(20));
+
+        // =====================================================
+        // RECENT ACTIVITY
+        // =====================================================
+
+        JPanel activityCard = Theme.panel();
+        activityCard.setLayout(new BorderLayout(0, 15));
+        activityCard.setBorder(
+                new EmptyBorder(20, 20, 20, 20)
+        );
+
+        JLabel activityTitle = new JLabel("Recent Activity");
+        activityTitle.setFont(
+                new Font("Segoe UI", Font.BOLD, 18)
+        );
+        activityTitle.setForeground(Theme.LIGHT);
+
+        JLabel activitySubtitle = new JLabel(
+                "A record of the latest actions performed in your vault."
+        );
+        activitySubtitle.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
+        );
+        activitySubtitle.setForeground(Theme.MUTED);
+
+        JPanel activityHeader = new JPanel();
+        activityHeader.setLayout(
+                new BoxLayout(activityHeader, BoxLayout.Y_AXIS)
+        );
+        activityHeader.setBackground(Theme.PANEL);
+
+        activityHeader.add(activityTitle);
+        activityHeader.add(Box.createVerticalStrut(5));
+        activityHeader.add(activitySubtitle);
+
+        recentActivityPanel = new JPanel();
+        recentActivityPanel.setLayout(
+                new BoxLayout(
+                        recentActivityPanel,
+                        BoxLayout.Y_AXIS
+                )
+        );
+        recentActivityPanel.setBackground(Theme.PANEL);
+
+        activityCard.add(
+                activityHeader,
                 BorderLayout.NORTH
         );
 
-        recentCard.add(
-                recentEntriesPanel,
+        activityCard.add(
+                recentActivityPanel,
                 BorderLayout.CENTER
         );
 
-        content.add(recentCard);
+        content.add(activityCard);
 
         // =====================================================
         // SCROLL PANE
         // =====================================================
 
         JScrollPane scrollPane = new JScrollPane(content);
-
         scrollPane.setBorder(null);
-
         scrollPane.getViewport().setBackground(Theme.BG);
-
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         add(scrollPane, BorderLayout.CENTER);
@@ -357,25 +355,20 @@ public class DashboardPanel extends JPanel {
         );
 
         JLabel titleLabel = new JLabel(title);
-
         titleLabel.setFont(
                 new Font("Segoe UI", Font.PLAIN, 13)
         );
-
         titleLabel.setForeground(Theme.MUTED);
 
         valueLabel.setFont(
                 new Font("Segoe UI", Font.BOLD, 30)
         );
-
         valueLabel.setForeground(Theme.LIGHT);
 
         JLabel descriptionLabel = new JLabel(description);
-
         descriptionLabel.setFont(
                 new Font("Segoe UI", Font.PLAIN, 11)
         );
-
         descriptionLabel.setForeground(Theme.MUTED);
 
         card.add(titleLabel);
@@ -398,7 +391,6 @@ public class DashboardPanel extends JPanel {
             List<VaultEntry> entries = database.entries(secretKey);
 
             Set<String> categories = new LinkedHashSet<>();
-
             List<VaultEntry> favorites = new ArrayList<>();
 
             for (VaultEntry entry : entries) {
@@ -435,8 +427,8 @@ public class DashboardPanel extends JPanel {
             dateLabel.setText(getCurrentDate());
 
             updateFavoriteEntries(favorites);
-
             updateRecentEntries(entries);
+            updateRecentActivity(activities);
 
         } catch (Exception e) {
 
@@ -470,7 +462,6 @@ public class DashboardPanel extends JPanel {
             emptyLabel.setFont(
                     new Font("Segoe UI", Font.PLAIN, 13)
             );
-
             emptyLabel.setForeground(Theme.MUTED);
 
             favoriteEntriesPanel.add(emptyLabel);
@@ -484,40 +475,33 @@ public class DashboardPanel extends JPanel {
                 );
 
                 row.setBackground(Theme.PANEL);
-
                 row.setBorder(
                         new EmptyBorder(12, 0, 12, 0)
                 );
 
                 JPanel information = new JPanel();
-
                 information.setLayout(
                         new BoxLayout(
                                 information,
                                 BoxLayout.Y_AXIS
                         )
                 );
-
                 information.setBackground(Theme.PANEL);
 
                 JLabel name = new JLabel(
                         "★  " + entry.title()
                 );
-
                 name.setFont(
                         new Font("Segoe UI", Font.BOLD, 14)
                 );
-
                 name.setForeground(Theme.LIGHT);
 
                 JLabel username = new JLabel(
                         entry.username()
                 );
-
                 username.setFont(
                         new Font("Segoe UI", Font.PLAIN, 12)
                 );
-
                 username.setForeground(Theme.MUTED);
 
                 information.add(name);
@@ -525,13 +509,10 @@ public class DashboardPanel extends JPanel {
                 information.add(username);
 
                 JButton viewButton = new JButton("Quick Access");
-
                 viewButton.setFont(
                         new Font("Segoe UI", Font.PLAIN, 11)
                 );
-
                 viewButton.setFocusPainted(false);
-
                 viewButton.setCursor(
                         Cursor.getPredefinedCursor(
                                 Cursor.HAND_CURSOR
@@ -542,18 +523,10 @@ public class DashboardPanel extends JPanel {
                         e -> showFavoriteDetails(entry)
                 );
 
-                row.add(
-                        information,
-                        BorderLayout.CENTER
-                );
-
-                row.add(
-                        viewButton,
-                        BorderLayout.EAST
-                );
+                row.add(information, BorderLayout.CENTER);
+                row.add(viewButton, BorderLayout.EAST);
 
                 favoriteEntriesPanel.add(row);
-
                 addSeparator(favoriteEntriesPanel);
             }
         }
@@ -579,21 +552,17 @@ public class DashboardPanel extends JPanel {
         dialog.setResizable(false);
 
         JPanel panel = Theme.panel();
-
         panel.setLayout(
                 new BoxLayout(panel, BoxLayout.Y_AXIS)
         );
-
         panel.setBorder(
                 new EmptyBorder(25, 25, 25, 25)
         );
 
         JLabel title = new JLabel(entry.title());
-
         title.setFont(
                 new Font("Segoe UI", Font.BOLD, 21)
         );
-
         title.setForeground(Theme.LIGHT);
 
         JLabel username = new JLabel(
@@ -628,15 +597,12 @@ public class DashboardPanel extends JPanel {
         username.setFont(
                 new Font("Segoe UI", Font.PLAIN, 13)
         );
-
         category.setFont(
                 new Font("Segoe UI", Font.PLAIN, 13)
         );
-
         url.setFont(
                 new Font("Segoe UI", Font.PLAIN, 13)
         );
-
         password.setFont(
                 new Font("Segoe UI", Font.PLAIN, 13)
         );
@@ -644,7 +610,6 @@ public class DashboardPanel extends JPanel {
         JButton copyPasswordButton = new JButton(
                 "Copy Password"
         );
-
         copyPasswordButton.setFocusPainted(false);
 
         copyPasswordButton.addActionListener(e -> {
@@ -690,9 +655,7 @@ public class DashboardPanel extends JPanel {
         });
 
         JButton closeButton = new JButton("Close");
-
         closeButton.setFocusPainted(false);
-
         closeButton.addActionListener(
                 e -> dialog.dispose()
         );
@@ -700,9 +663,7 @@ public class DashboardPanel extends JPanel {
         JPanel buttons = new JPanel(
                 new FlowLayout(FlowLayout.RIGHT)
         );
-
         buttons.setBackground(Theme.PANEL);
-
         buttons.add(copyPasswordButton);
         buttons.add(closeButton);
 
@@ -741,7 +702,6 @@ public class DashboardPanel extends JPanel {
             emptyLabel.setFont(
                     new Font("Segoe UI", Font.PLAIN, 13)
             );
-
             emptyLabel.setForeground(Theme.MUTED);
 
             recentEntriesPanel.add(emptyLabel);
@@ -760,38 +720,31 @@ public class DashboardPanel extends JPanel {
                 );
 
                 row.setBackground(Theme.PANEL);
-
                 row.setBorder(
                         new EmptyBorder(12, 0, 12, 0)
                 );
 
                 JPanel information = new JPanel();
-
                 information.setLayout(
                         new BoxLayout(
                                 information,
                                 BoxLayout.Y_AXIS
                         )
                 );
-
                 information.setBackground(Theme.PANEL);
 
                 JLabel name = new JLabel(entry.title());
-
                 name.setFont(
                         new Font("Segoe UI", Font.BOLD, 14)
                 );
-
                 name.setForeground(Theme.LIGHT);
 
                 JLabel username = new JLabel(
                         entry.username()
                 );
-
                 username.setFont(
                         new Font("Segoe UI", Font.PLAIN, 12)
                 );
-
                 username.setForeground(Theme.MUTED);
 
                 information.add(name);
@@ -808,27 +761,200 @@ public class DashboardPanel extends JPanel {
                 category.setFont(
                         new Font("Segoe UI", Font.PLAIN, 11)
                 );
-
                 category.setForeground(Theme.ACCENT);
 
-                row.add(
-                        information,
-                        BorderLayout.CENTER
-                );
-
-                row.add(
-                        category,
-                        BorderLayout.EAST
-                );
+                row.add(information, BorderLayout.CENTER);
+                row.add(category, BorderLayout.EAST);
 
                 recentEntriesPanel.add(row);
-
                 addSeparator(recentEntriesPanel);
             }
         }
 
         recentEntriesPanel.revalidate();
         recentEntriesPanel.repaint();
+    }
+
+    // =========================================================
+    // RECENT ACTIVITY
+    // =========================================================
+
+    private void updateRecentActivity(
+            List<String[]> activities
+    ) {
+
+        recentActivityPanel.removeAll();
+
+        if (activities == null || activities.isEmpty()) {
+
+            JLabel emptyLabel = new JLabel(
+                    "No activity has been recorded yet."
+            );
+
+            emptyLabel.setFont(
+                    new Font("Segoe UI", Font.PLAIN, 13)
+            );
+            emptyLabel.setForeground(Theme.MUTED);
+
+            recentActivityPanel.add(emptyLabel);
+
+        } else {
+
+            // Show the latest eight records.
+            // Database.activity() returns records oldest first.
+            int limit = Math.min(8, activities.size());
+
+            for (int i = 0; i < limit; i++) {
+
+                String[] record = activities.get(
+                        activities.size() - 1 - i
+                );
+
+                if (record == null || record.length < 2) {
+                    continue;
+                }
+
+                String timestamp = record[0] == null
+                        ? ""
+                        : record[0];
+
+                String description = record[1] == null
+                        ? "Unknown activity"
+                        : record[1];
+
+                JPanel row = new JPanel(
+                        new BorderLayout(12, 5)
+                );
+
+                row.setBackground(Theme.PANEL);
+                row.setBorder(
+                        new EmptyBorder(12, 0, 12, 0)
+                );
+
+                JLabel activityIcon = new JLabel(
+                        getActivityIcon(description)
+                );
+
+                activityIcon.setFont(
+                        new Font("Segoe UI", Font.BOLD, 17)
+                );
+                activityIcon.setForeground(Theme.ACCENT);
+
+                JPanel information = new JPanel();
+                information.setLayout(
+                        new BoxLayout(
+                                information,
+                                BoxLayout.Y_AXIS
+                        )
+                );
+                information.setBackground(Theme.PANEL);
+
+                JLabel activityDescription = new JLabel(
+                        description
+                );
+
+                activityDescription.setFont(
+                        new Font("Segoe UI", Font.BOLD, 13)
+                );
+                activityDescription.setForeground(Theme.LIGHT);
+
+                JLabel activityTime = new JLabel(
+                        formatActivityTimestamp(timestamp)
+                );
+
+                activityTime.setFont(
+                        new Font("Segoe UI", Font.PLAIN, 11)
+                );
+                activityTime.setForeground(Theme.MUTED);
+
+                information.add(activityDescription);
+                information.add(Box.createVerticalStrut(5));
+                information.add(activityTime);
+
+                row.add(activityIcon, BorderLayout.WEST);
+                row.add(information, BorderLayout.CENTER);
+
+                recentActivityPanel.add(row);
+
+                if (i < limit - 1) {
+                    addSeparator(recentActivityPanel);
+                }
+            }
+        }
+
+        recentActivityPanel.revalidate();
+        recentActivityPanel.repaint();
+    }
+
+    // =========================================================
+    // ACTIVITY ICON
+    // =========================================================
+
+    private String getActivityIcon(String description) {
+
+        String action = description.toLowerCase();
+
+        if (action.contains("added")
+                || action.contains("created")) {
+            return "+";
+        }
+
+        if (action.contains("updated")) {
+            return "↻";
+        }
+
+        if (action.contains("deleted")
+                || action.contains("emptied")) {
+            return "×";
+        }
+
+        if (action.contains("restored")) {
+            return "↶";
+        }
+
+        if (action.contains("favorite")) {
+            return "★";
+        }
+
+        if (action.contains("unlocked")) {
+            return "●";
+        }
+
+        if (action.contains("backup")
+                || action.contains("snapshot")) {
+            return "▣";
+        }
+
+        return "•";
+    }
+
+    // =========================================================
+    // ACTIVITY TIMESTAMP
+    // =========================================================
+
+    private String formatActivityTimestamp(String timestamp) {
+
+        if (timestamp == null || timestamp.isBlank()) {
+            return "Time unavailable";
+        }
+
+        try {
+
+            LocalDateTime dateTime = LocalDateTime.parse(
+                    timestamp
+            );
+
+            return dateTime.format(
+                    DateTimeFormatter.ofPattern(
+                            "MMM dd, yyyy  •  hh:mm a"
+                    )
+            );
+
+        } catch (Exception e) {
+
+            // Display the original value if it cannot be parsed.
+            return timestamp.replace("T", " ");
+        }
     }
 
     // =========================================================
