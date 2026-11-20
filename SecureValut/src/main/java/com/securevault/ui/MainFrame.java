@@ -39,6 +39,7 @@ public class MainFrame extends JFrame {
     private SettingsPanel settingsPanel;
     private PasswordHealthPanel passwordHealthPanel;
     private SecureNotesPanel secureNotesPanel;
+    private RecycleBinPanel recycleBinPanel;
 
     public MainFrame(
             Database database,
@@ -125,10 +126,15 @@ public class MainFrame extends JFrame {
     private void initializePanels() {
 
         dashboardPanel = new DashboardPanel(database, secretKey);
+
         vaultPanel = new VaultPanel(database, secretKey);
+
         generatorPanel = new GeneratorPanel();
+
         securityPanel = new SecurityPanel(database, secretKey);
+
         categoriesPanel = new CategoriesPanel(database, secretKey);
+
         historyPanel = new HistoryPanel(database);
 
         settingsPanel = new SettingsPanel(
@@ -147,15 +153,30 @@ public class MainFrame extends JFrame {
                 secretKey
         );
 
+        recycleBinPanel = new RecycleBinPanel(
+                database,
+                secretKey
+        );
+
         contentPanel.add(dashboardPanel, "Dashboard");
+
         contentPanel.add(vaultPanel, "Vault");
+
         contentPanel.add(generatorPanel, "Generator");
+
         contentPanel.add(securityPanel, "Security");
+
         contentPanel.add(categoriesPanel, "Categories");
+
         contentPanel.add(historyPanel, "History");
+
         contentPanel.add(settingsPanel, "Settings");
+
         contentPanel.add(passwordHealthPanel, "Password Health");
+
         contentPanel.add(secureNotesPanel, "Secure Notes");
+
+        contentPanel.add(recycleBinPanel, "Recycle Bin");
     }
 
     // =========================================================
@@ -208,6 +229,7 @@ public class MainFrame extends JFrame {
         String[] pages = {
                 "Dashboard",
                 "Vault",
+                "Recycle Bin",
                 "Generator",
                 "Password Health",
                 "Secure Notes",
@@ -257,7 +279,17 @@ public class MainFrame extends JFrame {
 
         sidebar.add(status);
 
-        add(sidebar, BorderLayout.WEST);
+        JScrollPane sidebarScroll = new JScrollPane(sidebar);
+
+        sidebarScroll.setPreferredSize(new Dimension(235, 0));
+        sidebarScroll.setBorder(null);
+        sidebarScroll.setHorizontalScrollBarPolicy(
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        sidebarScroll.getViewport().setBackground(Theme.PANEL);
+        sidebarScroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        add(sidebarScroll, BorderLayout.WEST);
     }
 
     // =========================================================
@@ -290,6 +322,9 @@ public class MainFrame extends JFrame {
 
             case "Secure Notes" ->
                     secureNotesPanel.refresh();
+
+            case "Recycle Bin" ->
+                    recycleBinPanel.refresh();
         }
     }
 
@@ -395,8 +430,8 @@ public class MainFrame extends JFrame {
 
         JOptionPane.showMessageDialog(
                 this,
-                "SecureVault has been locked due to inactivity.\n" +
-                        "Enter your master password to continue.",
+                "SecureVault has been locked due to inactivity.\n"
+                        + "Enter your master password to continue.",
                 "Automatic Vault Lock",
                 JOptionPane.INFORMATION_MESSAGE
         );
