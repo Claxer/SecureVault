@@ -8,6 +8,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,8 +25,12 @@ public class DashboardPanel extends JPanel {
     private JLabel activityValue;
     private JLabel favoritesValue;
 
+    private JLabel dateLabel;
+
     private JPanel recentEntriesPanel;
     private JPanel favoriteEntriesPanel;
+
+    private JButton refreshButton;
 
     public DashboardPanel(Database database, SecretKey secretKey) {
 
@@ -41,38 +47,95 @@ public class DashboardPanel extends JPanel {
         refresh();
     }
 
+    // =========================================================
+    // HEADER
+    // =========================================================
+
     private void createHeader() {
 
         JPanel header = new JPanel(new BorderLayout());
+
         header.setBackground(Theme.BG);
 
         JPanel titles = new JPanel();
-        titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
+
+        titles.setLayout(
+                new BoxLayout(titles, BoxLayout.Y_AXIS)
+        );
+
         titles.setBackground(Theme.BG);
 
         JLabel title = new JLabel("Dashboard");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+
+        title.setFont(
+                new Font("Segoe UI", Font.BOLD, 28)
+        );
+
         title.setForeground(Theme.LIGHT);
 
         JLabel subtitle = new JLabel(
                 "Overview of your password vault and account activity."
         );
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        subtitle.setFont(
+                new Font("Segoe UI", Font.PLAIN, 13)
+        );
+
         subtitle.setForeground(Theme.MUTED);
+
+        dateLabel = new JLabel(getCurrentDate());
+
+        dateLabel.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
+        );
+
+        dateLabel.setForeground(Theme.ACCENT);
 
         titles.add(title);
         titles.add(Box.createVerticalStrut(5));
         titles.add(subtitle);
+        titles.add(Box.createVerticalStrut(7));
+        titles.add(dateLabel);
+
+        refreshButton = new JButton("Refresh");
+
+        refreshButton.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
+        );
+
+        refreshButton.setFocusPainted(false);
+
+        refreshButton.setCursor(
+                Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+        );
+
+        refreshButton.addActionListener(e -> refresh());
 
         header.add(titles, BorderLayout.WEST);
+        header.add(refreshButton, BorderLayout.EAST);
 
         add(header, BorderLayout.NORTH);
     }
 
+    private String getCurrentDate() {
+
+        return LocalDate.now().format(
+                DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy")
+        );
+    }
+
+    // =========================================================
+    // DASHBOARD CONTENT
+    // =========================================================
+
     private void createDashboardContent() {
 
         JPanel content = new JPanel();
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        content.setLayout(
+                new BoxLayout(content, BoxLayout.Y_AXIS)
+        );
+
         content.setBackground(Theme.BG);
 
         // =====================================================
@@ -84,6 +147,7 @@ public class DashboardPanel extends JPanel {
         );
 
         statistics.setBackground(Theme.BG);
+
         statistics.setMaximumSize(
                 new Dimension(Integer.MAX_VALUE, 120)
         );
@@ -121,11 +185,15 @@ public class DashboardPanel extends JPanel {
         content.add(Box.createVerticalStrut(25));
 
         // =====================================================
-        // FAVORITES AND QUICK ACCESS
+        // FAVORITE CREDENTIALS
         // =====================================================
 
         JPanel favoritesCard = Theme.panel();
-        favoritesCard.setLayout(new BorderLayout(0, 15));
+
+        favoritesCard.setLayout(
+                new BorderLayout(0, 15)
+        );
+
         favoritesCard.setBorder(
                 new EmptyBorder(20, 20, 20, 20)
         );
@@ -151,6 +219,7 @@ public class DashboardPanel extends JPanel {
         favoritesSubtitle.setForeground(Theme.MUTED);
 
         JPanel favoritesHeader = new JPanel();
+
         favoritesHeader.setLayout(
                 new BoxLayout(favoritesHeader, BoxLayout.Y_AXIS)
         );
@@ -267,6 +336,10 @@ public class DashboardPanel extends JPanel {
         add(scrollPane, BorderLayout.CENTER);
     }
 
+    // =========================================================
+    // STATISTICS CARD
+    // =========================================================
+
     private JPanel createStatCard(
             String title,
             JLabel valueLabel,
@@ -358,6 +431,8 @@ public class DashboardPanel extends JPanel {
             favoritesValue.setText(
                     String.valueOf(favorites.size())
             );
+
+            dateLabel.setText(getCurrentDate());
 
             updateFavoriteEntries(favorites);
 
@@ -550,10 +625,21 @@ public class DashboardPanel extends JPanel {
         url.setForeground(Theme.LIGHT);
         password.setForeground(Theme.LIGHT);
 
-        username.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        category.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        url.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        password.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        username.setFont(
+                new Font("Segoe UI", Font.PLAIN, 13)
+        );
+
+        category.setFont(
+                new Font("Segoe UI", Font.PLAIN, 13)
+        );
+
+        url.setFont(
+                new Font("Segoe UI", Font.PLAIN, 13)
+        );
+
+        password.setFont(
+                new Font("Segoe UI", Font.PLAIN, 13)
+        );
 
         JButton copyPasswordButton = new JButton(
                 "Copy Password"
