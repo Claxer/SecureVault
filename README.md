@@ -36,9 +36,12 @@ The project is currently under active development, with its core functionality a
 - **Category Statistics** — Shows the number of credential categories.
 - **Activity Overview** — Displays activity record statistics.
 - **Recent Credentials** — Shows recently added credential entries.
+- **Recent Activity** — Displays recent vault activities directly on the dashboard.
+- **Activity Timestamps** — Shows formatted dates and times for recorded activity.
 - **Favorites Statistics** — Adds a dashboard overview of favorited credentials.
 - **Favorite Credentials Section** — Provides quick access to selected favorite credentials.
 - **Quick Access Actions** — Allows users to view favorite credential details and copy passwords through the dashboard.
+- **Dashboard Refresh** — Allows dashboard information to be refreshed.
 
 ### Credential Entry Form
 - **Credential Input Form** — Provides fields for account titles, usernames, passwords, URLs, categories, and notes.
@@ -75,6 +78,7 @@ The project is currently under active development, with its core functionality a
 - **History Interface** — Provides a dedicated page for reviewing activity records.
 - **Generic Activity Logging** — Records credential-related actions without including credential titles in new activity descriptions.
 - **Recycle Bin Activity Logging** — Records credential restoration, permanent deletion, and Recycle Bin emptying actions.
+- **Secure Notes Activity Logging** — Records secure note creation, editing, deletion, and pinning actions.
 
 ### Security Management
 - **Security Panel** — Provides a dedicated interface for reviewing password security.
@@ -126,19 +130,23 @@ The project is currently under active development, with its core functionality a
 - **Main Application Navigation** — Uses a centralized main frame to organize the application's different panels.
 
 ### Recycle Bin & Credential Recovery
-- **Soft Deletion** — Marks deleted credentials with a deletion timestamp instead of immediately removing their database records.
+- **Recycle Bin Panel** — Provides a dedicated interface for viewing and managing deleted credentials.
+- **Deleted Credential Listing** — Displays credentials that have been moved into the Recycle Bin.
+- **Deleted Credential Information** — Displays credential titles, usernames, categories, creation dates, and deletion dates.
 - **Deleted Credential Tracking** — Stores the date and time when a credential is moved to the Recycle Bin.
 - **Active Credential Filtering** — Excludes deleted credentials from the normal vault retrieval query.
 - **Deleted Credential Retrieval** — Provides a database method for retrieving credentials currently in the Recycle Bin.
-- **Credential Restoration** — Supports restoring deleted credentials by clearing their deletion timestamp.
-- **Permanent Deletion** — Supports permanently removing individual credentials from the Recycle Bin.
-- **Empty Recycle Bin** — Provides a database operation for permanently deleting all credentials in the Recycle Bin.
-- **Recycle Bin Count** — Provides a database method for counting deleted credentials.
+- **Credential Restoration** — Allows users to restore deleted credentials back into the active Vault.
+- **Individual Permanent Deletion** — Allows users to permanently delete selected credentials from the Recycle Bin.
+- **Empty Recycle Bin** — Provides an interface action for permanently deleting all credentials in the Recycle Bin.
+- **Deletion Confirmation** — Displays confirmation dialogs before permanently deleting individual credentials or emptying the entire Recycle Bin.
+- **Recycle Bin Count** — Displays the number of deleted credentials and provides a database method for counting them.
+- **Refreshable Recycle Bin** — Allows users to refresh the deleted credential list.
 - **Favorite Preservation** — Retains the original favorite status when credentials are moved into and restored from the Recycle Bin.
 - **Activity Logging** — Records restoration and permanent deletion actions.
 - **Database Migration Support** — Adds the `deleted_at` column to existing credential tables without requiring existing credentials to be deleted.
-
-*The database functionality for the Recycle Bin has been added. Its dedicated user interface and main application navigation integration are still being developed.*
+- **Database Integration** — Connects the Recycle Bin interface directly to the existing SQLite database operations.
+- **Main Navigation Integration** — Adds Recycle Bin as a dedicated page in the application's sidebar.
 
 ### Encrypted Backup & Restoration
 - **Encrypted Backup Creation** — Allows users to create encrypted backup files of their SecureVault database.
@@ -165,7 +173,7 @@ The project is currently under active development, with its core functionality a
 
 ### User Interface
 - **Login Interface** — Provides the initial authentication screen for accessing the vault.
-- **Dashboard Panel** — Establishes the main dashboard interface.
+- **Dashboard Panel** — Provides the main dashboard with credential statistics, favorite credentials, recent credentials, and recent activity.
 - **Credential Entry Dialog** — Provides a dedicated dialog for preparing credential entries.
 - **Password Generator Panel** — Provides a dedicated interface for generating and evaluating passwords.
 - **History Panel** — Displays recorded vault activities.
@@ -173,23 +181,25 @@ The project is currently under active development, with its core functionality a
 - **Security Panel** — Provides the security analysis interface.
 - **Password Health Panel** — Provides an interface for reviewing password health information.
 - **Secure Notes Panel** — Provides the interface for creating, editing, searching, pinning, and deleting encrypted notes.
+- **Recycle Bin Panel** — Provides the interface for viewing, restoring, and permanently deleting removed credentials.
 - **Settings Panel** — Provides an interface for application settings, encrypted backup creation, and backup restoration.
-- **Main Frame** — Serves as the primary application window and navigation structure.
+- **Main Frame** — Serves as the primary application window and navigation structure, including Recycle Bin navigation.
 - **Theme Component** — Centralizes the application's visual theme.
 - **Vault Panel** — Provides the main credential management interface.
 
 ## Planned Features
 
-The following components are still under development or planned for future updates:
+The following components are planned for future updates or further development:
 
-- **Recycle Bin Interface** — Create a dedicated panel for displaying deleted credentials.
-- **Credential Recovery Interface** — Add restore and permanent deletion controls to the Recycle Bin panel.
-- **Empty Recycle Bin Confirmation** — Add a confirmation dialog before permanently deleting all recycled credentials.
-- **Recycle Bin Navigation** — Integrate the Recycle Bin into the main application navigation.
 - **Password Expiration Tracking** — Track password age and identify credentials that may need updating.
 - **Expanded Security Recommendations** — Introduce additional security checks and recommendations.
-- **Dashboard Improvements** — Expand dashboard statistics and security-related information.
-- **Secure Clipboard Improvements** — Further improve clipboard handling and sensitive-data cleanup.
+- **Advanced Search & Filters** — Expand credential filtering and search capabilities.
+- **Custom Folders & Tags** — Introduce additional ways to organize saved credentials.
+- **Credential Details Improvements** — Expand the information and actions available when viewing individual credentials.
+- **Clipboard Security Improvements** — Further improve clipboard handling and sensitive-data cleanup.
+- **Two-Factor Authentication** — Add an additional authentication step when unlocking the vault.
+- **Vault Analytics** — Expand dashboard statistics and introduce additional visual reports.
+- **Import & Export** — Support importing and exporting credential information with appropriate security precautions.
 - **Additional Security Improvements** — Continue improving vault protection, password handling, backup management, and application security.
 
 ## Technologies Used
@@ -259,6 +269,7 @@ SecureVault/
 │                       ├── HistoryPanel.java
 │                       ├── LoginFrame.java
 │                       ├── MainFrame.java
+│                       ├── RecycleBinPanel.java
 │                       ├── SecurityPanel.java
 │                       ├── SettingsPanel.java
 │                       ├── Theme.java
@@ -273,13 +284,13 @@ SecureVault/
 
 **Under Active Development**
 
-SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, password security analysis, encrypted backup and restoration, and secure note management.
+SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, password security analysis, encrypted backup and restoration, secure note management, and Recycle Bin functionality.
 
 The Password Generator uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the same analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
 
 The Vault Management interface supports credential favorites, filtering between all, favorite, and non-favorite entries, expanded credential searching, and sorting by different credential fields. Users can also copy saved passwords to the clipboard, with an automatic clearing attempt after 30 seconds.
 
-The Dashboard has also been expanded with favorite credential statistics and a Quick Access section for viewing and accessing favorite credentials.
+The Dashboard includes favorite credential statistics and a Quick Access section for viewing and accessing favorite credentials. It also displays recently added credentials and recent vault activity, allowing users to review important account and activity information from the main dashboard.
 
 Database updates support favorite credentials and soft deletion while preserving existing credential records. The database migration checks for missing columns and adds them without intentionally replacing existing data. New credential activity descriptions use generic action labels instead of including credential titles.
 
@@ -297,13 +308,15 @@ Secure note titles, contents, and categories are encrypted before being stored i
 
 Secure Notes are stored in the same SQLite database used by the vault. As a result, the existing database snapshot mechanism includes the secure notes table and its encrypted data when creating database backups.
 
-The latest database update introduces the foundation for a Recycle Bin system. Instead of immediately deleting credentials, the database now supports soft deletion by recording a deletion timestamp. Deleted credentials can be retrieved separately, restored, permanently deleted individually, or permanently removed together through an Empty Recycle Bin database operation. The normal credential retrieval method excludes deleted entries, while the original credential information and favorite status are retained during soft deletion.
+The Recycle Bin feature extends credential deletion by using soft deletion. Instead of immediately deleting credentials, the database records a deletion timestamp. Deleted credentials are retrieved separately from active vault entries, while their original information and favorite status are preserved.
 
-The Recycle Bin database operations are implemented, but the dedicated Recycle Bin interface and navigation integration are still in progress.
+The dedicated Recycle Bin interface displays deleted credentials along with their usernames, categories, creation dates, and deletion dates. Users can restore selected credentials to the active Vault, permanently delete individual entries, or empty the entire Recycle Bin. Confirmation dialogs are provided before irreversible deletion actions.
 
-The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Password Health, Secure Notes, Settings, Login, and Main Application Frame, along with a centralized Theme component.
+Recycle Bin functionality is integrated into the main application navigation through a dedicated sidebar entry. Its interface retrieves and refreshes deleted credential information using the existing database operations. Recycle Bin records are also included in SQLite database snapshots used by the encrypted backup system.
 
-Further development will focus on completing the Recycle Bin interface, improving the application's security, expanding its functionality, and testing existing features.
+The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Password Health, Secure Notes, Recycle Bin, Settings, Login, and Main Application Frame, along with a centralized Theme component.
+
+Further development will focus on improving the application's security, expanding its functionality, and testing existing features.
 
 ## Security Notice
 
@@ -315,7 +328,7 @@ Encrypted backup creation and restoration have been implemented in the project c
 
 Secure Notes encrypts note titles, contents, and categories before database storage. However, the overall application and its security mechanisms still require thorough testing and review.
 
-Recycle Bin functionality currently has database-level support. Its interface and complete user workflow still need to be implemented and tested.
+The Recycle Bin supports restoring deleted credentials and permanently deleting selected or all recycled entries. Permanent deletion cannot be undone. Users should carefully review confirmation dialogs before proceeding.
 
 Avoid storing real or sensitive credentials or private information until the application has been thoroughly tested and reviewed.
 
