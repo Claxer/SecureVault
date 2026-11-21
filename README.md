@@ -14,7 +14,9 @@ The project is currently under active development, with its core functionality a
 - **Secure Note Data Model** — Defines the structure used to represent stored secure notes.
 - **Database Migration** — Adds support for new database fields, including favorites and soft deletion, while preserving existing credential records.
 - **Automatic Schema Updates** — Checks whether database columns exist before adding them, helping maintain compatibility with existing databases.
-- **Database Snapshot Creation** — Uses SQLite's snapshot functionality to create a consistent copy of the vault database for backup purposes.
+- **Database Snapshot Creation** — Uses SQLite snapshot functionality to create a consistent copy of the vault database for backup purposes.
+- **Database Connection Management** — Supports closing and reopening the database connection during database restoration.
+- **Database Restoration Protection** — Uses staged database files and rollback handling when replacing the active database.
 
 ### Encryption & Security
 - **AES-256-GCM Encryption** — Encrypts credential information before database storage.
@@ -25,6 +27,8 @@ The project is currently under active development, with its core functionality a
 - **Authenticated Encryption** — Uses AES-GCM authentication to help detect unauthorized modifications to encrypted backup contents.
 - **Secure Notes Encryption** — Encrypts note titles, contents, and categories before storing them in the database.
 - **Encrypted Credential Fields** — Encrypts credential titles, usernames, passwords, URLs, categories, and notes before database storage.
+- **Sensitive Memory Cleanup** — Clears temporary password copies and sensitive byte arrays after backup processing.
+- **Temporary File Cleanup** — Attempts to remove temporary database snapshots, decrypted files, and intermediate backup files after processing.
 
 ### Master Password Authentication
 - **Master Password Setup** — Provides the initial master password setup process.
@@ -110,10 +114,17 @@ The project is currently under active development, with its core functionality a
 - **Theme Management** — Includes a centralized theme component for maintaining the application's visual appearance.
 - **Manual Vault Locking** — Allows users to manually lock SecureVault through the Settings panel.
 - **Automatic Vault Locking** — Automatically locks the vault after the configured period of inactivity, with a default timeout of five minutes.
+- **Automatic Lock Options** — Provides Never, 1 minute, 5 minutes, 10 minutes, 15 minutes, and 30 minutes options.
+- **Persistent Auto-Lock Preferences** — Saves the selected automatic lock duration using Java Preferences.
 - **Application Information** — Displays application and security-related information.
 - **Security Information** — Displays information about the application's password hashing, encryption, and database storage.
 - **Backup Management** — Provides access to encrypted backup creation and restoration.
-- **Backup Restoration Integration** — Connects the backup restoration functionality directly to the Settings panel.
+- **Backup Password Confirmation** — Requires users to enter and confirm their backup password before creating a backup.
+- **Backup File Selection** — Uses a file chooser to select the destination for new backups and existing backup files.
+- **Backup Extension Handling** — Automatically adds the `.svb` extension when it is missing from a selected backup filename.
+- **Restoration Confirmation** — Warns users that restoring a backup replaces the current database before proceeding.
+- **Backup Error Handling** — Displays error messages when backup creation, validation, or restoration fails.
+- **Login Transition Request** — Invokes the application's lock action after successful restoration to request a return to the login screen.
 
 ### Vault Management
 - **Vault Panel** — Provides a dedicated interface for accessing and organizing stored credentials.
@@ -152,22 +163,30 @@ The project is currently under active development, with its core functionality a
 - **Encrypted Backup Creation** — Allows users to create encrypted backup files of their SecureVault database.
 - **Separate Backup Password** — Uses a dedicated backup password instead of directly relying on the master password.
 - **Backup Password Validation** — Requires a minimum backup password length of 12 characters.
+- **Backup Password Confirmation** — Requires the backup password to be entered twice during backup creation to reduce the chance of typing errors.
 - **SQLite Database Snapshot** — Creates a consistent database snapshot before encryption.
 - **AES-256-GCM Backup Encryption** — Encrypts the database snapshot before saving it as a backup file.
-- **PBKDF2-HMAC-SHA256 Key Derivation** — Derives the backup encryption key from the supplied backup password.
+- **PBKDF2-HMAC-SHA256 Key Derivation** — Uses the existing cryptographic service to derive the backup encryption key from the supplied backup password.
 - **Random Salt and Nonce Generation** — Uses randomly generated cryptographic values during backup encryption.
 - **`.svb` Backup Format** — Stores encrypted backup information in a dedicated SecureVault backup file format.
-- **Backup File Validation** — Checks the backup file's structure, format, version, salt length, encrypted data length, and unexpected trailing data.
+- **Backup Format Versioning** — Uses backup format version 1 to identify and validate the backup container.
+- **Backup File Validation** — Checks the backup file's signature, format version, salt length, encrypted data length, actual file size, and unexpected trailing data.
+- **Maximum Backup Size Check** — Rejects backup files that exceed the configured maximum supported encrypted data size.
 - **Backup Decryption** — Decrypts backup contents using the correct backup password.
 - **Backup Password Verification** — Uses authenticated decryption to reject incorrect passwords or corrupted encrypted contents.
 - **Database Snapshot Validation** — Checks the restored SQLite database before replacing the active database.
 - **Database Integrity Checking** — Performs SQLite integrity checks and verifies required database tables and columns.
 - **Safe Database Restoration** — Uses a staged database file and rollback protection when replacing the existing database.
-- **Temporary File Cleanup** — Attempts to remove temporary snapshot and decrypted backup files after processing.
+- **Database Connection Reopening** — Reopens the database connection after successful snapshot restoration so the application can continue working with the restored database.
+- **Temporary Backup File Handling** — Writes a completed backup to a temporary file before moving it to the selected destination.
+- **Existing File Protection** — Avoids intentionally overwriting an existing backup file at the selected destination.
+- **Sensitive Memory Cleanup** — Uses an internal copy of the supplied backup password and clears that copy after processing, rather than directly clearing the caller's password array.
+- **Temporary File Cleanup** — Attempts to remove temporary snapshot, intermediate backup, and decrypted database files after processing.
 - **Backup Management Service** — Uses a dedicated `BackupService` class to handle backup creation, validation, and restoration.
 - **Settings Integration** — Provides Create Encrypted Backup and Restore Encrypted Backup options directly from the Settings panel.
 - **Restoration Confirmation** — Warns users that restoring a backup replaces the current database before proceeding.
-- **Return to Login** — Returns the application to the login screen after successful database restoration so the restored database can be reopened.
+- **Login Transition Request** — Requests a return to the login screen after successful restoration so the restored vault can be authenticated again.
+- **Restored Vault Authentication** — Requires the user to authenticate using the master password associated with the restored database.
 - **Secure Notes Backup Support** — Includes the secure notes database table and its stored encrypted data in SQLite database snapshots.
 - **Recycle Bin Backup Support** — Includes deleted credential records and their deletion timestamps in database snapshots.
 
@@ -182,7 +201,7 @@ The project is currently under active development, with its core functionality a
 - **Password Health Panel** — Provides an interface for reviewing password health information.
 - **Secure Notes Panel** — Provides the interface for creating, editing, searching, pinning, and deleting encrypted notes.
 - **Recycle Bin Panel** — Provides the interface for viewing, restoring, and permanently deleting removed credentials.
-- **Settings Panel** — Provides an interface for application settings, encrypted backup creation, and backup restoration.
+- **Settings Panel** — Provides an interface for application settings, automatic locking, encrypted backup creation, and backup restoration.
 - **Main Frame** — Serves as the primary application window and navigation structure, including Recycle Bin navigation.
 - **Theme Component** — Centralizes the application's visual theme.
 - **Vault Panel** — Provides the main credential management interface.
@@ -294,13 +313,19 @@ The Dashboard includes favorite credential statistics and a Quick Access section
 
 Database updates support favorite credentials and soft deletion while preserving existing credential records. The database migration checks for missing columns and adds them without intentionally replacing existing data. New credential activity descriptions use generic action labels instead of including credential titles.
 
-The application includes automatic vault locking after the configured period of inactivity, with a default timeout of five minutes, as well as a manual locking option through the Settings panel.
+The application includes automatic vault locking after the configured period of inactivity, with a default timeout of five minutes, as well as a manual locking option through the Settings panel. Users can select from several inactivity durations, including disabling automatic locking, and their selection is saved using Java Preferences.
 
-The Encrypted Backup feature introduces a dedicated backup service that creates a SQLite database snapshot and encrypts it using AES-256-GCM. Users can provide a separate backup password, and the resulting encrypted backup is saved in the `.svb` file format.
+The Encrypted Backup feature uses a dedicated backup service that creates a SQLite database snapshot and encrypts it using AES-256-GCM. Users can provide a separate backup password, and the resulting encrypted backup is saved in the `.svb` file format.
 
-The backup system has also been expanded to support restoration. Users can select an existing `.svb` file, validate its structure, enter its backup password, and decrypt its contents. Before installation, the restored database is checked for SQLite integrity and required database structures. The restoration process uses a staged database file and rollback protection to help protect the existing database if installation fails.
+The backup system uses a versioned file structure containing a file signature, format version, salt, and encrypted database data. Backup validation checks the container structure, expected format version, data lengths, and unexpected trailing data. It also checks that the actual file size matches the length declared inside the backup.
 
-The Settings panel includes both Create Encrypted Backup and Restore Encrypted Backup options. Successful restoration closes the current database connection and returns the application to the login screen so that the restored database can be reopened.
+Backup creation uses a temporary intermediate file before moving the completed backup to its destination. Existing files are not intentionally overwritten. The backup service also uses an internal password copy and clears temporary password and byte-array data after processing.
+
+The backup restoration process allows users to select an existing `.svb` file, validate its structure, enter the backup password, and decrypt its contents. Before installation, the restored database is checked for SQLite integrity and required database structures. The restoration process uses a staged database file and rollback protection to help protect the existing database if installation fails.
+
+The database restoration process reopens its connection after successfully installing the restored snapshot. The Settings panel then invokes the application's lock action to request a return to the login screen. The complete login transition and authentication flow after restoration still require integration testing with the main application frame.
+
+The Settings panel includes both Create Encrypted Backup and Restore Encrypted Backup options. Backup creation requires users to enter and confirm a separate password of at least 12 characters. Restoration displays a warning before replacing the active database and provides error messages when the selected backup cannot be validated or restored.
 
 The Secure Notes feature introduces a dedicated note management system integrated into the main application. Users can create, edit, search, pin, unpin, and delete private notes. Each note supports a title, content, and category, along with creation and last-updated timestamps.
 
@@ -324,7 +349,11 @@ SecureVault is an educational project and has not undergone a professional secur
 
 Clipboard auto-clear is best-effort and cannot guarantee removal from operating system clipboard history or third-party clipboard managers.
 
-Encrypted backup creation and restoration have been implemented in the project code. However, backup recovery, database replacement, rollback behavior, and application login after restoration should be thoroughly tested before relying on the feature for important data.
+Encrypted backup creation and restoration have been implemented in the project code. However, backup recovery, database replacement, rollback behavior, database connection reopening, and application login after restoration should be thoroughly tested before relying on the feature for important data.
+
+Backup file validation checks the structure and declared lengths of the backup container. It does not establish that the password is correct or that the encrypted database contents are valid. Successful decryption and database integrity validation are separate restoration steps.
+
+Temporary file deletion and sensitive-memory cleanup are best-effort measures. They do not guarantee that sensitive data has been removed from every operating system cache, storage device, or memory location.
 
 Secure Notes encrypts note titles, contents, and categories before database storage. However, the overall application and its security mechanisms still require thorough testing and review.
 
