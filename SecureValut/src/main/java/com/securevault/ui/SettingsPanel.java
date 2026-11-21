@@ -34,6 +34,18 @@ public class SettingsPanel extends JPanel {
             IntConsumer autoLockChange
     ) {
 
+        if (database == null) {
+            throw new IllegalArgumentException(
+                    "Database is required."
+            );
+        }
+
+        if (lockAction == null) {
+            throw new IllegalArgumentException(
+                    "Lock action is required."
+            );
+        }
+
         this.database = database;
         this.lockAction = lockAction;
         this.autoLockChange = autoLockChange;
@@ -46,21 +58,41 @@ public class SettingsPanel extends JPanel {
         createContent();
     }
 
+    // =========================================================
+    // HEADER
+    // =========================================================
+
     private void createHeader() {
 
         JPanel header = new JPanel();
-        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+
+        header.setLayout(new BoxLayout(
+                header,
+                BoxLayout.Y_AXIS
+        ));
+
         header.setBackground(Theme.BG);
 
         JLabel title = new JLabel("Settings");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+
+        title.setFont(new Font(
+                "Segoe UI",
+                Font.BOLD,
+                28
+        ));
+
         title.setForeground(Theme.LIGHT);
 
         JLabel subtitle = new JLabel(
                 "Manage your SecureVault application and security."
         );
 
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                13
+        ));
+
         subtitle.setForeground(Theme.MUTED);
 
         header.add(title);
@@ -70,37 +102,67 @@ public class SettingsPanel extends JPanel {
         add(header, BorderLayout.NORTH);
     }
 
+    // =========================================================
+    // MAIN CONTENT
+    // =========================================================
+
     private void createContent() {
 
         JPanel content = new JPanel();
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        content.setLayout(new BoxLayout(
+                content,
+                BoxLayout.Y_AXIS
+        ));
+
         content.setBackground(Theme.BG);
 
-        // =====================================================
         // APPLICATION INFORMATION
-        // =====================================================
 
         JPanel appCard = createCard();
 
-        appCard.add(createSectionTitle("Application Information"));
+        appCard.add(createSectionTitle(
+                "Application Information"
+        ));
+
         appCard.add(Box.createVerticalStrut(18));
 
-        appCard.add(createInfoRow("Application", "SecureVault"));
-        appCard.add(createInfoRow("Version", "1.0.0"));
-        appCard.add(createInfoRow("Language", "Java 25"));
-        appCard.add(createInfoRow("Interface", "Java Swing"));
-        appCard.add(createInfoRow("Database", "SQLite"));
+        appCard.add(createInfoRow(
+                "Application",
+                "SecureVault"
+        ));
+
+        appCard.add(createInfoRow(
+                "Version",
+                "1.0.0"
+        ));
+
+        appCard.add(createInfoRow(
+                "Language",
+                "Java 25"
+        ));
+
+        appCard.add(createInfoRow(
+                "Interface",
+                "Java Swing"
+        ));
+
+        appCard.add(createInfoRow(
+                "Database",
+                "SQLite"
+        ));
 
         content.add(appCard);
         content.add(Box.createVerticalStrut(18));
 
-        // =====================================================
         // SECURITY INFORMATION
-        // =====================================================
 
         JPanel securityCard = createCard();
 
-        securityCard.add(createSectionTitle("Security Information"));
+        securityCard.add(createSectionTitle(
+                "Security Information"
+        ));
+
         securityCard.add(Box.createVerticalStrut(18));
 
         securityCard.add(createInfoRow(
@@ -126,13 +188,14 @@ public class SettingsPanel extends JPanel {
         content.add(securityCard);
         content.add(Box.createVerticalStrut(18));
 
-        // =====================================================
         // AUTOMATIC LOCK SETTINGS
-        // =====================================================
 
         JPanel autoLockCard = createCard();
 
-        autoLockCard.add(createSectionTitle("Automatic Lock"));
+        autoLockCard.add(createSectionTitle(
+                "Automatic Lock"
+        ));
+
         autoLockCard.add(Box.createVerticalStrut(12));
 
         JLabel autoLockDescription = new JLabel(
@@ -140,9 +203,11 @@ public class SettingsPanel extends JPanel {
                         "before automatically locking your vault.</html>"
         );
 
-        autoLockDescription.setFont(
-                new Font("Segoe UI", Font.PLAIN, 12)
-        );
+        autoLockDescription.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                12
+        ));
 
         autoLockDescription.setForeground(Theme.MUTED);
         autoLockDescription.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -159,27 +224,38 @@ public class SettingsPanel extends JPanel {
                 "30 minutes"
         });
 
-        autoLockCombo.setMaximumSize(new Dimension(250, 38));
+        autoLockCombo.setMaximumSize(
+                new Dimension(250, 38)
+        );
+
         autoLockCombo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        int savedMinutes = PREFS.getInt(
+                AUTO_LOCK_KEY,
+                DEFAULT_AUTO_LOCK
+        );
+
         autoLockCombo.setSelectedItem(
-                getAutoLockLabel(
-                        PREFS.getInt(AUTO_LOCK_KEY, DEFAULT_AUTO_LOCK)
-                )
+                getAutoLockLabel(savedMinutes)
         );
 
         autoLockCombo.addActionListener(e -> {
 
             int minutes = getSelectedAutoLockMinutes();
 
-            PREFS.putInt(AUTO_LOCK_KEY, minutes);
+            PREFS.putInt(
+                    AUTO_LOCK_KEY,
+                    minutes
+            );
 
-            autoLockChange.accept(minutes);
+            if (this.autoLockChange != null) {
+                this.autoLockChange.accept(minutes);
+            }
 
             JOptionPane.showMessageDialog(
                     this,
-                    "Automatic lock setting updated to " +
-                            getAutoLockLabel(minutes) + ".",
+                    "Automatic lock setting updated to "
+                            + getAutoLockLabel(minutes) + ".",
                     "Settings Updated",
                     JOptionPane.INFORMATION_MESSAGE
             );
@@ -192,7 +268,12 @@ public class SettingsPanel extends JPanel {
                 "Your selection will be saved automatically."
         );
 
-        autoLockNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        autoLockNote.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                11
+        ));
+
         autoLockNote.setForeground(Theme.MUTED);
         autoLockNote.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -201,13 +282,14 @@ public class SettingsPanel extends JPanel {
         content.add(autoLockCard);
         content.add(Box.createVerticalStrut(18));
 
-        // =====================================================
         // BACKUP AND RESTORE
-        // =====================================================
 
         JPanel backupCard = createCard();
 
-        backupCard.add(createSectionTitle("Backup and Restore"));
+        backupCard.add(createSectionTitle(
+                "Backup and Restore"
+        ));
+
         backupCard.add(Box.createVerticalStrut(10));
 
         JLabel backupDescription = new JLabel(
@@ -216,9 +298,11 @@ public class SettingsPanel extends JPanel {
                         "You can also restore a previously created backup.</html>"
         );
 
-        backupDescription.setFont(
-                new Font("Segoe UI", Font.PLAIN, 12)
-        );
+        backupDescription.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                12
+        ));
 
         backupDescription.setForeground(Theme.MUTED);
         backupDescription.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -226,26 +310,38 @@ public class SettingsPanel extends JPanel {
         backupCard.add(backupDescription);
         backupCard.add(Box.createVerticalStrut(16));
 
-        JButton backupButton = Theme.button("Create Encrypted Backup");
+        JButton backupButton = Theme.button(
+                "Create Encrypted Backup"
+        );
 
         backupButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         backupButton.addActionListener(e -> createBackup());
 
         backupCard.add(backupButton);
         backupCard.add(Box.createVerticalStrut(10));
 
-        JButton restoreButton = Theme.button("Restore Encrypted Backup");
+        JButton restoreButton = Theme.button(
+                "Restore Encrypted Backup"
+        );
 
         restoreButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         restoreButton.addActionListener(e -> restoreBackup());
 
         backupCard.add(restoreButton);
 
         JLabel backupNote = new JLabel(
-                "Backup files use the .svb extension. Keep your backup password safe."
+                "Backup files use the .svb extension. " +
+                        "Keep your backup password safe."
         );
 
-        backupNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        backupNote.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                11
+        ));
+
         backupNote.setForeground(Theme.MUTED);
         backupNote.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -255,28 +351,37 @@ public class SettingsPanel extends JPanel {
         content.add(backupCard);
         content.add(Box.createVerticalStrut(18));
 
-        // =====================================================
         // VAULT CONTROLS
-        // =====================================================
 
         JPanel vaultCard = createCard();
 
-        vaultCard.add(createSectionTitle("Vault Controls"));
+        vaultCard.add(createSectionTitle(
+                "Vault Controls"
+        ));
+
         vaultCard.add(Box.createVerticalStrut(10));
 
         JLabel description = new JLabel(
                 "Lock your vault to end the current session."
         );
 
-        description.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        description.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                12
+        ));
+
         description.setForeground(Theme.MUTED);
 
         vaultCard.add(description);
         vaultCard.add(Box.createVerticalStrut(18));
 
-        JButton lockButton = Theme.button("Lock SecureVault");
+        JButton lockButton = Theme.button(
+                "Lock SecureVault"
+        );
 
         lockButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         lockButton.addActionListener(e -> lockVault());
 
         vaultCard.add(lockButton);
@@ -284,13 +389,14 @@ public class SettingsPanel extends JPanel {
         content.add(vaultCard);
         content.add(Box.createVerticalStrut(18));
 
-        // =====================================================
         // ABOUT SECTION
-        // =====================================================
 
         JPanel aboutCard = createCard();
 
-        aboutCard.add(createSectionTitle("About SecureVault"));
+        aboutCard.add(createSectionTitle(
+                "About SecureVault"
+        ));
+
         aboutCard.add(Box.createVerticalStrut(12));
 
         JLabel aboutText = new JLabel(
@@ -300,21 +406,26 @@ public class SettingsPanel extends JPanel {
                         "security analysis, categories, and activity history.</html>"
         );
 
-        aboutText.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        aboutText.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                13
+        ));
+
         aboutText.setForeground(Theme.MUTED);
 
         aboutCard.add(aboutText);
 
         content.add(aboutCard);
 
-        // =====================================================
         // SCROLL PANE
-        // =====================================================
 
         JScrollPane scrollPane = new JScrollPane(content);
 
         scrollPane.setBorder(null);
+
         scrollPane.getViewport().setBackground(Theme.BG);
+
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         add(scrollPane, BorderLayout.CENTER);
@@ -328,7 +439,9 @@ public class SettingsPanel extends JPanel {
 
         JFileChooser chooser = new JFileChooser();
 
-        chooser.setDialogTitle("Create SecureVault Backup");
+        chooser.setDialogTitle(
+                "Create SecureVault Backup"
+        );
 
         chooser.setFileFilter(
                 new FileNameExtensionFilter(
@@ -349,12 +462,12 @@ public class SettingsPanel extends JPanel {
 
         Path destination = chooser.getSelectedFile().toPath();
 
-        if (!destination.getFileName().toString()
-                .toLowerCase()
-                .endsWith(".svb")) {
+        String filename = destination.getFileName().toString();
+
+        if (!filename.toLowerCase().endsWith(".svb")) {
 
             destination = destination.resolveSibling(
-                    destination.getFileName() + ".svb"
+                    filename + ".svb"
             );
         }
 
@@ -378,7 +491,10 @@ public class SettingsPanel extends JPanel {
                 new GridLayout(0, 1, 5, 5)
         );
 
-        passwordPanel.add(new JLabel("Create a backup password:"));
+        passwordPanel.add(new JLabel(
+                "Create a backup password:"
+        ));
+
         passwordPanel.add(passwordField);
 
         passwordPanel.add(new JLabel(
@@ -457,7 +573,8 @@ public class SettingsPanel extends JPanel {
 
             JOptionPane.showMessageDialog(
                     this,
-                    e.getMessage(),
+                    "Could not create the backup.\n\n" +
+                            getErrorMessage(e),
                     "Backup Failed",
                     JOptionPane.ERROR_MESSAGE
             );
@@ -480,7 +597,9 @@ public class SettingsPanel extends JPanel {
 
         JFileChooser chooser = new JFileChooser();
 
-        chooser.setDialogTitle("Select SecureVault Backup");
+        chooser.setDialogTitle(
+                "Select SecureVault Backup"
+        );
 
         chooser.setFileFilter(
                 new FileNameExtensionFilter(
@@ -497,7 +616,8 @@ public class SettingsPanel extends JPanel {
 
         Path backupFile = chooser.getSelectedFile().toPath();
 
-        // Validate the backup container before requesting its password.
+        // Validate the backup container first.
+
         try {
 
             BackupService.validateBackupFile(backupFile);
@@ -507,7 +627,7 @@ public class SettingsPanel extends JPanel {
             JOptionPane.showMessageDialog(
                     this,
                     "The selected backup file is invalid or damaged.\n\n" +
-                            e.getMessage(),
+                            getErrorMessage(e),
                     "Invalid Backup",
                     JOptionPane.ERROR_MESSAGE
             );
@@ -515,24 +635,8 @@ public class SettingsPanel extends JPanel {
             return;
         }
 
-        // Confirm database replacement.
-        int confirmation = JOptionPane.showConfirmDialog(
-                this,
-                "Restoring this backup will replace your current " +
-                        "SecureVault database.\n\n" +
-                        "Any changes made after this backup was created " +
-                        "may be lost.\n\n" +
-                        "Do you want to continue?",
-                "Confirm Database Restoration",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE
-        );
+        // Request the backup password.
 
-        if (confirmation != JOptionPane.YES_OPTION) {
-            return;
-        }
-
-        // Request backup password.
         JPasswordField passwordField = new JPasswordField(20);
 
         JPanel passwordPanel = new JPanel(
@@ -577,6 +681,28 @@ public class SettingsPanel extends JPanel {
                 return;
             }
 
+            // Confirm database replacement.
+
+            int confirmation = JOptionPane.showConfirmDialog(
+                    this,
+                    "Restoring this backup will replace your current " +
+                            "SecureVault database.\n\n" +
+                            "Any changes made after this backup was created " +
+                            "may be lost.\n\n" +
+                            "Make sure you have a separate backup of your " +
+                            "current database before continuing.\n\n" +
+                            "Do you want to continue?",
+                    "Confirm Database Restoration",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            if (confirmation != JOptionPane.YES_OPTION) {
+                return;
+            }
+
+            // Restore the database.
+
             BackupService.restoreBackup(
                     database,
                     backupFile,
@@ -586,21 +712,41 @@ public class SettingsPanel extends JPanel {
             JOptionPane.showMessageDialog(
                     this,
                     "Your SecureVault database was restored successfully.\n\n" +
-                            "SecureVault will now return to the login screen.",
+                            "You will now return to the login screen. " +
+                            "Sign in using the master password associated " +
+                            "with the restored backup.",
                     "Backup Restored",
                     JOptionPane.INFORMATION_MESSAGE
             );
 
-            // The database connection has been closed by restoreBackup().
-            // Return to login so the application opens a fresh connection.
-            lockAction.run();
+            // Return to login and require authentication again.
+            // The lock action is responsible for ending the current
+            // application session and handling its database lifecycle.
+
+            try {
+
+                lockAction.run();
+
+            } catch (Exception e) {
+
+                JOptionPane.showMessageDialog(
+                        null,
+                        "The backup was restored, but SecureVault " +
+                                "could not automatically return to the " +
+                                "login screen.\n\n" +
+                                getErrorMessage(e) +
+                                "\n\nPlease close and reopen SecureVault.",
+                        "Login Transition Error",
+                        JOptionPane.WARNING_MESSAGE
+                );
+            }
 
         } catch (Exception e) {
 
             JOptionPane.showMessageDialog(
                     this,
                     "Could not restore the backup.\n\n" +
-                            e.getMessage(),
+                            getErrorMessage(e),
                     "Restore Failed",
                     JOptionPane.ERROR_MESSAGE
             );
@@ -608,6 +754,7 @@ public class SettingsPanel extends JPanel {
         } finally {
 
             Arrays.fill(backupPassword, '\0');
+
             passwordField.setText("");
         }
     }
@@ -618,7 +765,8 @@ public class SettingsPanel extends JPanel {
 
     private int getSelectedAutoLockMinutes() {
 
-        String selected = (String) autoLockCombo.getSelectedItem();
+        String selected =
+                (String) autoLockCombo.getSelectedItem();
 
         if (selected == null || selected.equals("Never")) {
             return 0;
@@ -642,6 +790,25 @@ public class SettingsPanel extends JPanel {
     }
 
     // =========================================================
+    // ERROR MESSAGE HELPER
+    // =========================================================
+
+    private String getErrorMessage(Exception e) {
+
+        if (e == null) {
+            return "An unknown error occurred.";
+        }
+
+        String message = e.getMessage();
+
+        if (message == null || message.isBlank()) {
+            return e.getClass().getSimpleName();
+        }
+
+        return message;
+    }
+
+    // =========================================================
     // CREATE CARD
     // =========================================================
 
@@ -649,8 +816,18 @@ public class SettingsPanel extends JPanel {
 
         JPanel card = Theme.panel();
 
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBorder(new EmptyBorder(22, 22, 22, 22));
+        card.setLayout(new BoxLayout(
+                card,
+                BoxLayout.Y_AXIS
+        ));
+
+        card.setBorder(new EmptyBorder(
+                22,
+                22,
+                22,
+                22
+        ));
+
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         return card;
@@ -664,8 +841,14 @@ public class SettingsPanel extends JPanel {
 
         JLabel label = new JLabel(text);
 
-        label.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        label.setFont(new Font(
+                "Segoe UI",
+                Font.BOLD,
+                17
+        ));
+
         label.setForeground(Theme.LIGHT);
+
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         return label;
@@ -675,22 +858,46 @@ public class SettingsPanel extends JPanel {
     // CREATE INFORMATION ROW
     // =========================================================
 
-    private JPanel createInfoRow(String label, String value) {
+    private JPanel createInfoRow(
+            String label,
+            String value
+    ) {
 
-        JPanel row = new JPanel(new BorderLayout(15, 0));
+        JPanel row = new JPanel(
+                new BorderLayout(15, 0)
+        );
 
         row.setBackground(Theme.PANEL);
-        row.setBorder(new EmptyBorder(8, 0, 8, 0));
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+
+        row.setBorder(new EmptyBorder(
+                8,
+                0,
+                8,
+                0
+        ));
+
+        row.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 38)
+        );
 
         JLabel nameLabel = new JLabel(label);
 
-        nameLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        nameLabel.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                13
+        ));
+
         nameLabel.setForeground(Theme.MUTED);
 
         JLabel valueLabel = new JLabel(value);
 
-        valueLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        valueLabel.setFont(new Font(
+                "Segoe UI",
+                Font.PLAIN,
+                13
+        ));
+
         valueLabel.setForeground(Theme.LIGHT);
 
         row.add(nameLabel, BorderLayout.WEST);
@@ -715,20 +922,32 @@ public class SettingsPanel extends JPanel {
                 JOptionPane.WARNING_MESSAGE
         );
 
-        if (choice == JOptionPane.YES_OPTION) {
-
-            try {
-                database.close();
-            } catch (Exception ignored) {
-            }
-
-            Window window = SwingUtilities.getWindowAncestor(this);
-
-            if (window != null) {
-                window.dispose();
-            }
-
-            lockAction.run();
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
         }
+
+        try {
+
+            database.close();
+
+        } catch (Exception e) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "There was a problem closing the database.\n\n" +
+                            getErrorMessage(e),
+                    "Lock Warning",
+                    JOptionPane.WARNING_MESSAGE
+            );
+        }
+
+        Window window =
+                SwingUtilities.getWindowAncestor(this);
+
+        if (window != null) {
+            window.dispose();
+        }
+
+        lockAction.run();
     }
 }
