@@ -18,7 +18,7 @@ import java.util.List;
 
 public class Database {
 
-    private final Connection connection;
+    private Connection connection;
     private final Path databasePath;
 
     public Database() {
@@ -32,14 +32,7 @@ public class Database {
 
             databasePath = directory.resolve("securevault.db");
 
-            connection = DriverManager.getConnection(
-                    "jdbc:sqlite:" + databasePath
-            );
-
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("PRAGMA foreign_keys = ON");
-                statement.execute("PRAGMA busy_timeout = 5000");
-            }
+            connection = openConnection();
 
             createTables();
             migrateDatabase();
@@ -49,6 +42,32 @@ public class Database {
                     "Could not initialize SecureVault database.", e
             );
         }
+    }
+
+    // =========================================================
+    // CONNECTION INITIALIZATION
+    // =========================================================
+
+    private Connection openConnection() throws SQLException {
+
+        Connection newConnection = DriverManager.getConnection(
+                "jdbc:sqlite:" + databasePath
+        );
+
+        try (Statement statement = newConnection.createStatement()) {
+            statement.execute("PRAGMA foreign_keys = ON");
+            statement.execute("PRAGMA busy_timeout = 5000");
+        } catch (SQLException e) {
+            try {
+                newConnection.close();
+            } catch (SQLException closeError) {
+                e.addSuppressed(closeError);
+            }
+
+            throw e;
+        }
+
+        return newConnection;
     }
 
     // =========================================================
@@ -1039,8 +1058,9 @@ public class Database {
         }
 
         Path source = snapshot.toAbsolutePath().normalize();
+        Path activeDatabase = databasePath.toAbsolutePath().normalize();
 
-        if (source.equals(databasePath.toAbsolutePath().normalize())) {
+        if (source.equals(activeDatabase)) {
             throw new IOException(
                     "Cannot restore the active database file directly."
             );
@@ -1058,7 +1078,8 @@ public class Database {
 
         Path rollbackFile = null;
 
-        boolean originalMoved = false;
+        boolean originalConnectionClosed = false;
+        boolean originalDatabaseMoved = false;
         boolean newDatabaseInstalled = false;
 
         try {
@@ -1072,6 +1093,7 @@ public class Database {
             validateDatabaseFile(stagedFile);
 
             connection.close();
+            originalConnectionClosed = true;
 
             rollbackFile = Files.createTempFile(
                     directory,
@@ -1082,35 +1104,77 @@ public class Database {
             Files.deleteIfExists(rollbackFile);
 
             if (Files.exists(databasePath)) {
+
                 moveFile(databasePath, rollbackFile);
-                originalMoved = true;
+
+                originalDatabaseMoved = true;
             }
 
-            try {
-                moveFile(stagedFile, databasePath);
-                newDatabaseInstalled = true;
+            moveFile(stagedFile, databasePath);
+            newDatabaseInstalled = true;
 
-            } catch (IOException installError) {
+            // Reopen the restored database.
+            connection = openConnection();
 
-                if (originalMoved) {
-                    moveFile(rollbackFile, databasePath);
-                    originalMoved = false;
-                }
-
-                throw installError;
-            }
-
+            // The restored database is now active.
+            // Remove the old database backup.
             if (rollbackFile != null) {
-                Files.deleteIfExists(rollbackFile);
+                try {
+                    Files.deleteIfExists(rollbackFile);
+                } catch (IOException ignored) {
+                    // A leftover rollback file does not invalidate restoration.
+                }
             }
+
+        } catch (IOException | SQLException restoreError) {
+
+            // Close a partially opened restored connection.
+            try {
+                if (connection != null && !connection.isClosed()) {
+                    connection.close();
+                }
+            } catch (SQLException closeError) {
+                restoreError.addSuppressed(closeError);
+            }
+
+            // Remove the failed restored database.
+            if (newDatabaseInstalled) {
+                try {
+                    Files.deleteIfExists(databasePath);
+                } catch (IOException cleanupError) {
+                    restoreError.addSuppressed(cleanupError);
+                }
+            }
+
+            // Restore the original database file.
+            if (originalDatabaseMoved
+                    && rollbackFile != null
+                    && Files.exists(rollbackFile)) {
+
+                try {
+                    moveFile(rollbackFile, databasePath);
+                } catch (IOException rollbackError) {
+                    restoreError.addSuppressed(rollbackError);
+                }
+            }
+
+            // Reopen the original database if possible.
+            if (originalConnectionClosed) {
+                try {
+                    connection = openConnection();
+                } catch (SQLException reopenError) {
+                    restoreError.addSuppressed(reopenError);
+                }
+            }
+
+            throw new IOException(
+                    "Could not restore the SecureVault database.",
+                    restoreError
+            );
 
         } finally {
 
             Files.deleteIfExists(stagedFile);
-
-            if (newDatabaseInstalled && rollbackFile != null) {
-                Files.deleteIfExists(rollbackFile);
-            }
         }
     }
 
@@ -1140,7 +1204,7 @@ public class Database {
     public boolean isClosed() {
 
         try {
-            return connection.isClosed();
+            return connection == null || connection.isClosed();
 
         } catch (SQLException e) {
             throw databaseError(e);
@@ -1158,7 +1222,7 @@ public class Database {
 
         try {
 
-            if (!connection.isClosed()) {
+            if (connection != null && !connection.isClosed()) {
                 connection.close();
             }
 
