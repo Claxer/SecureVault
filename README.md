@@ -72,6 +72,25 @@ The project is currently under active development, with its core functionality a
 - **Sequential Character Detection** — Detects predictable sequences such as ascending or descending characters.
 - **Security Recommendations** — Provides suggestions to improve password quality.
 
+### Advanced Password Health Checker
+- **Password Health Analysis Engine** — Introduces a dedicated `PasswordHealthChecker` service for analyzing saved vault credentials.
+- **Individual Password Evaluation** — Analyzes each saved credential and generates an individual security score ranging from 0 to 100.
+- **Password Strength Classification** — Classifies analyzed passwords as Strong, Medium, or Weak.
+- **Password Length Detection** — Identifies passwords shorter than the recommended minimum length of 12 characters.
+- **Character Variety Detection** — Checks for uppercase letters, lowercase letters, numbers, and special characters.
+- **Common Password Detection** — Identifies selected commonly used and predictable passwords through a built-in local password list.
+- **Reused Password Detection** — Compares saved passwords and identifies exact password matches across multiple accounts.
+- **Security Score Calculation** — Calculates an overall vault security score using the average scores of analyzed credentials.
+- **Password Security Penalties** — Applies score reductions for reused and short passwords and limits scores for detected common passwords.
+- **Password Issue Identification** — Generates individual issue descriptions for passwords that do not meet the current security checks.
+- **Personalized Security Recommendations** — Provides suggestions based on the identified issues of individual passwords.
+- **Vault Security Statistics** — Calculates the total number of analyzed passwords, strong passwords, medium passwords, weak passwords, reused passwords, and common passwords.
+- **Local Password Analysis** — Performs password health checks locally without sending passwords to external websites or services.
+- **Password Analysis Results** — Returns structured analysis results without including plaintext passwords in the result objects.
+- **Health Report Generation** — Produces a consolidated report containing the overall score, password statistics, individual results, and recommendations.
+- **Immutable Analysis Results** — Uses Java records and immutable result lists for organizing password analysis information.
+- **Refreshable Analysis** — Allows password health information to be recalculated using the currently saved vault credentials.
+
 ### Category Management
 - **Credential Categories** — Supports organizing credentials using category information.
 - **Category Structure** — Establishes the foundation for grouping and managing saved credentials.
@@ -177,7 +196,7 @@ The project is currently under active development, with its core functionality a
 - **Database Snapshot Validation** — Checks the restored SQLite database before replacing the active database.
 - **Database Integrity Checking** — Performs SQLite integrity checks and verifies required database tables and columns.
 - **Safe Database Restoration** — Uses a staged database file and rollback protection when replacing the existing database.
-- **Database Connection Reopening** — Reopens the database connection after successful snapshot restoration so the application can continue working with the restored database.
+- **Database Connection Reopening** — Reopens the database connection after successfully installing the restored database.
 - **Temporary Backup File Handling** — Writes a completed backup to a temporary file before moving it to the selected destination.
 - **Existing File Protection** — Avoids intentionally overwriting an existing backup file at the selected destination.
 - **Sensitive Memory Cleanup** — Uses an internal copy of the supplied backup password and clears that copy after processing, rather than directly clearing the caller's password array.
@@ -198,11 +217,14 @@ The project is currently under active development, with its core functionality a
 - **History Panel** — Displays recorded vault activities.
 - **Category Panel** — Provides an interface for credential category organization.
 - **Security Panel** — Provides the security analysis interface.
-- **Password Health Panel** — Provides an interface for reviewing password health information.
+- **Password Health Panel** — Provides a dedicated dashboard for reviewing password health, overall security scores, password statistics, individual analysis results, and recommendations.
+- **Password Health Navigation** — Integrates Password Health into the main application's sidebar navigation.
+- **Password Health Database Integration** — Retrieves saved credentials through the existing database connection and secret key for local analysis.
+- **Password Health Refresh** — Automatically refreshes the analysis when the Password Health page is opened and provides a manual refresh action.
 - **Secure Notes Panel** — Provides the interface for creating, editing, searching, pinning, and deleting encrypted notes.
 - **Recycle Bin Panel** — Provides the interface for viewing, restoring, and permanently deleting removed credentials.
 - **Settings Panel** — Provides an interface for application settings, automatic locking, encrypted backup creation, and backup restoration.
-- **Main Frame** — Serves as the primary application window and navigation structure, including Recycle Bin navigation.
+- **Main Frame** — Serves as the primary application window and navigation structure, including Password Health and Recycle Bin navigation.
 - **Theme Component** — Centralizes the application's visual theme.
 - **Vault Panel** — Provides the main credential management interface.
 
@@ -210,8 +232,9 @@ The project is currently under active development, with its core functionality a
 
 The following components are planned for future updates or further development:
 
-- **Password Expiration Tracking** — Track password age and identify credentials that may need updating.
+- **Password Expiration Tracking** — Track password age using password modification dates and identify credentials that may need updating.
 - **Expanded Security Recommendations** — Introduce additional security checks and recommendations.
+- **Breach Detection** — Explore privacy-preserving password breach checking without transmitting actual passwords.
 - **Advanced Search & Filters** — Expand credential filtering and search capabilities.
 - **Custom Folders & Tags** — Introduce additional ways to organize saved credentials.
 - **Credential Details Improvements** — Expand the information and actions available when viewing individual credentials.
@@ -278,6 +301,7 @@ SecureVault/
 │                   │   └── SecureNote.java
 │                   ├── service/
 │                   │   ├── PasswordStrengthAnalyzer.java
+│                   │   ├── PasswordHealthChecker.java
 │                   │   ├── BackupService.java
 │                   │   └── NoteService.java
 │                   └── ui/
@@ -303,9 +327,19 @@ SecureVault/
 
 **Under Active Development**
 
-SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, password security analysis, encrypted backup and restoration, secure note management, and Recycle Bin functionality.
+SecureVault is being developed gradually. Its current implementation includes the core application structure, database integration, encryption services, master password authentication, dashboard, password generator, credential entry form, category management, activity history interface, password security analysis, advanced password health analysis, encrypted backup and restoration, secure note management, and Recycle Bin functionality.
 
 The Password Generator uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the same analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
+
+The Advanced Password Health Checker introduces a separate analysis service that evaluates saved vault credentials. It calculates individual password scores, checks password length and character variety, identifies selected common passwords, detects exact password reuse across accounts, and generates recommendations for identified issues.
+
+The Password Health dashboard displays the overall vault security score, total analyzed passwords, strong passwords, medium passwords, weak passwords, reused passwords, and common passwords. It also provides an individual password analysis table and a dedicated recommendations section. The dashboard retrieves credentials using the existing database connection and encryption key, and its analysis can be refreshed when needed.
+
+The Password Health Checker currently uses local heuristic checks and a built-in list of selected common passwords. Its overall score is calculated from the average individual password scores. Password reuse and password length affect individual scores through additional penalties. These results are intended as practical security indicators rather than formal cryptographic security measurements.
+
+Password analysis is performed locally. The health analysis result objects contain credential identifiers, account titles, scores, classifications, detected issues, and recommendations rather than plaintext password values. Passwords are not sent to external checking services by this feature.
+
+The Password Generator uses a dedicated Password Strength Analyzer to evaluate generated passwords and provide improvement recommendations. The Security Center also uses the analyzer to identify weak passwords, detect reused passwords, calculate individual password scores, and display security recommendations.
 
 The Vault Management interface supports credential favorites, filtering between all, favorite, and non-favorite entries, expanded credential searching, and sorting by different credential fields. Users can also copy saved passwords to the clipboard, with an automatic clearing attempt after 30 seconds.
 
@@ -341,11 +375,17 @@ Recycle Bin functionality is integrated into the main application navigation thr
 
 The UI structure includes dedicated components for the Dashboard, Vault, Categories, Password Generator, Activity History, Security, Password Health, Secure Notes, Recycle Bin, Settings, Login, and Main Application Frame, along with a centralized Theme component.
 
+The latest Password Health development adds a dedicated `PasswordHealthChecker` service and connects the `PasswordHealthPanel` to the existing database and secret key through the main application frame. The panel is accessible through the sidebar and refreshes its analysis when opened.
+
 Further development will focus on improving the application's security, expanding its functionality, and testing existing features.
 
 ## Security Notice
 
 SecureVault is an educational project and has not undergone a professional security audit. Its encryption implementation and password strength analysis are intended for learning and development purposes. The password strength analyzer uses local heuristic checks and does not verify whether passwords have appeared in data breaches.
+
+The Advanced Password Health Checker uses a limited built-in common-password list and heuristic scoring rules. It does not provide an exhaustive assessment of password predictability, entropy, or real-world account compromise. Exact password reuse detection identifies identical saved password strings but does not detect every variation of a reused password.
+
+Password age analysis is not currently implemented. The credential creation timestamp should not be treated as the date a password was last changed.
 
 Clipboard auto-clear is best-effort and cannot guarantee removal from operating system clipboard history or third-party clipboard managers.
 
@@ -363,4 +403,4 @@ Avoid storing real or sensitive credentials or private information until the app
 
 ## Purpose
 
-This project is part of my journey as an Information Technology student. It serves as an opportunity to improve my Java programming skills while exploring database management, application security, encryption, backup and recovery systems, secure data storage, and desktop software development.
+This project is part of my journey as an Information Technology student. It serves as an opportunity to improve my Java programming skills while exploring database management, application security, encryption, backup and recovery systems, secure data storage, password analysis, and desktop software development.
