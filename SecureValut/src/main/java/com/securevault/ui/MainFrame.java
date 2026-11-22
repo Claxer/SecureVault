@@ -1,468 +1,667 @@
 package com.securevault.ui;
 
 import com.securevault.db.Database;
+import com.securevault.model.VaultEntry;
+import com.securevault.service.PasswordHealthChecker;
+import com.securevault.service.PasswordHealthChecker.HealthReport;
+import com.securevault.service.PasswordHealthChecker.PasswordResult;
 
 import javax.crypto.SecretKey;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.AWTEventListener;
-import java.util.prefs.Preferences;
+import java.util.List;
 
-public class MainFrame extends JFrame {
-
-    private static final Preferences AUTO_LOCK_PREFS =
-            Preferences.userNodeForPackage(SettingsPanel.class);
-
-    private static final String AUTO_LOCK_KEY = "autoLockMinutes";
-    private static final int DEFAULT_AUTO_LOCK = 5;
-
-    private int autoLockMinutes;
+public class PasswordHealthPanel extends JPanel {
 
     private final Database database;
     private final SecretKey secretKey;
-    private final Runnable lockAction;
 
-    private final JPanel contentPanel;
-    private final CardLayout cardLayout;
+    private final JLabel scoreLabel;
+    private final JLabel scoreDescription;
+    private final JLabel totalLabel;
+    private final JLabel strongLabel;
+    private final JLabel mediumLabel;
+    private final JLabel weakLabel;
+    private final JLabel reusedLabel;
+    private final JLabel commonLabel;
 
-    private final Timer inactivityTimer;
-    private final AWTEventListener activityListener;
+    private final JProgressBar scoreBar;
+    private final DefaultTableModel tableModel;
+    private final JTextArea recommendationsArea;
 
-    private boolean locked = false;
+    private static final Color BG = Theme.BG;
+    private static final Color PANEL = Theme.PANEL;
+    private static final Color TEXT = Theme.LIGHT;
+    private static final Color MUTED = Theme.MUTED;
 
-    private DashboardPanel dashboardPanel;
-    private VaultPanel vaultPanel;
-    private GeneratorPanel generatorPanel;
-    private SecurityPanel securityPanel;
-    private CategoriesPanel categoriesPanel;
-    private HistoryPanel historyPanel;
-    private SettingsPanel settingsPanel;
-    private PasswordHealthPanel passwordHealthPanel;
-    private SecureNotesPanel secureNotesPanel;
-    private RecycleBinPanel recycleBinPanel;
+    private static final Color GREEN = new Color(75, 190, 125);
+    private static final Color YELLOW = new Color(235, 185, 75);
+    private static final Color RED = new Color(235, 90, 90);
+    private static final Color BLUE = new Color(90, 145, 230);
 
-    public MainFrame(
+    public PasswordHealthPanel(
             Database database,
-            SecretKey secretKey,
-            Runnable lockAction
+            SecretKey secretKey
     ) {
 
         this.database = database;
         this.secretKey = secretKey;
-        this.lockAction = lockAction;
 
-        this.autoLockMinutes = AUTO_LOCK_PREFS.getInt(
-                AUTO_LOCK_KEY,
-                DEFAULT_AUTO_LOCK
+        setLayout(new BorderLayout(0, 18));
+        setBackground(BG);
+        setBorder(new EmptyBorder(25, 25, 25, 25));
+
+        // HEADER
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+
+        JPanel titlePanel = new JPanel();
+        titlePanel.setOpaque(false);
+        titlePanel.setLayout(
+                new BoxLayout(titlePanel, BoxLayout.Y_AXIS)
         );
 
-        setTitle("SecureVault");
-        setSize(1200, 760);
-        setMinimumSize(new Dimension(1000, 650));
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        setLocationRelativeTo(null);
-        getContentPane().setBackground(Theme.BG);
-        setLayout(new BorderLayout());
+        JLabel title = new JLabel("Password Health");
 
-        cardLayout = new CardLayout();
-        contentPanel = new JPanel(cardLayout);
-        contentPanel.setBackground(Theme.BG);
-
-        initializePanels();
-        createSidebar();
-
-        add(contentPanel, BorderLayout.CENTER);
-
-        showPage("Dashboard");
-
-        inactivityTimer = new Timer(
-                Math.max(1000, autoLockMinutes * 60 * 1000),
-                e -> lockVaultAutomatically()
+        title.setFont(
+                new Font("Segoe UI", Font.BOLD, 26)
         );
 
-        inactivityTimer.setRepeats(false);
+        title.setForeground(TEXT);
 
-        if (autoLockMinutes == 0) {
-            inactivityTimer.stop();
-        }
+        JLabel subtitle = new JLabel(
+                "Analyze your passwords and improve your vault security."
+        );
 
-        activityListener = event -> {
-            if (belongsToVault(event.getSource())) {
-                resetInactivityTimer();
+        subtitle.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
+        );
+
+        subtitle.setForeground(MUTED);
+
+        titlePanel.add(title);
+        titlePanel.add(Box.createVerticalStrut(6));
+        titlePanel.add(subtitle);
+
+        JButton refreshButton = createButton(
+                "Refresh Analysis",
+                BLUE
+        );
+
+        refreshButton.addActionListener(
+                e -> refresh()
+        );
+
+        header.add(titlePanel, BorderLayout.WEST);
+        header.add(refreshButton, BorderLayout.EAST);
+
+        // SECURITY SCORE
+        JPanel scorePanel = createCard();
+
+        scorePanel.setLayout(new BorderLayout(20, 10));
+        scorePanel.setBorder(
+                new EmptyBorder(20, 22, 20, 22)
+        );
+
+        JPanel scoreInfo = new JPanel();
+
+        scoreInfo.setOpaque(false);
+
+        scoreInfo.setLayout(
+                new BoxLayout(scoreInfo, BoxLayout.Y_AXIS)
+        );
+
+        JLabel scoreTitle = new JLabel(
+                "Overall Security Score"
+        );
+
+        scoreTitle.setFont(
+                new Font("Segoe UI", Font.BOLD, 15)
+        );
+
+        scoreTitle.setForeground(TEXT);
+
+        scoreLabel = new JLabel("0/100");
+
+        scoreLabel.setFont(
+                new Font("Segoe UI", Font.BOLD, 36)
+        );
+
+        scoreLabel.setForeground(BLUE);
+
+        scoreDescription = new JLabel(
+                "Waiting for analysis"
+        );
+
+        scoreDescription.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
+        );
+
+        scoreDescription.setForeground(MUTED);
+
+        scoreInfo.add(scoreTitle);
+        scoreInfo.add(Box.createVerticalStrut(8));
+        scoreInfo.add(scoreLabel);
+        scoreInfo.add(Box.createVerticalStrut(5));
+        scoreInfo.add(scoreDescription);
+
+        scoreBar = new JProgressBar(0, 100);
+
+        scoreBar.setValue(0);
+        scoreBar.setStringPainted(false);
+        scoreBar.setPreferredSize(
+                new Dimension(180, 12)
+        );
+
+        scoreBar.setBackground(new Color(45, 45, 50));
+        scoreBar.setForeground(BLUE);
+        scoreBar.setBorderPainted(false);
+
+        JPanel progressPanel = new JPanel(
+                new BorderLayout()
+        );
+
+        progressPanel.setOpaque(false);
+
+        progressPanel.setPreferredSize(
+                new Dimension(180, 35)
+        );
+
+        progressPanel.add(
+                scoreBar,
+                BorderLayout.CENTER
+        );
+
+        scorePanel.add(scoreInfo, BorderLayout.CENTER);
+        scorePanel.add(progressPanel, BorderLayout.SOUTH);
+
+        // STATISTICS
+        JPanel statistics = new JPanel(
+                new GridLayout(2, 3, 12, 12)
+        );
+
+        statistics.setOpaque(false);
+
+        totalLabel = addStat(
+                statistics,
+                "Total Passwords",
+                BLUE
+        );
+
+        strongLabel = addStat(
+                statistics,
+                "Strong Passwords",
+                GREEN
+        );
+
+        mediumLabel = addStat(
+                statistics,
+                "Medium Passwords",
+                YELLOW
+        );
+
+        weakLabel = addStat(
+                statistics,
+                "Weak Passwords",
+                RED
+        );
+
+        reusedLabel = addStat(
+                statistics,
+                "Reused Passwords",
+                YELLOW
+        );
+
+        commonLabel = addStat(
+                statistics,
+                "Common Passwords",
+                RED
+        );
+
+        // ANALYSIS TABLE
+        JPanel tablePanel = createCard();
+
+        tablePanel.setLayout(
+                new BorderLayout(0, 12)
+        );
+
+        tablePanel.setBorder(
+                new EmptyBorder(18, 18, 18, 18)
+        );
+
+        JLabel tableTitle = new JLabel(
+                "Password Analysis"
+        );
+
+        tableTitle.setFont(
+                new Font("Segoe UI", Font.BOLD, 15)
+        );
+
+        tableTitle.setForeground(TEXT);
+
+        String[] columns = {
+                "Account",
+                "Score",
+                "Strength",
+                "Issues"
+        };
+
+        tableModel = new DefaultTableModel(
+                columns,
+                0
+        ) {
+            @Override
+            public boolean isCellEditable(
+                    int row,
+                    int column
+            ) {
+                return false;
             }
         };
 
-        Toolkit.getDefaultToolkit().addAWTEventListener(
-                activityListener,
-                AWTEvent.MOUSE_EVENT_MASK
-                        | AWTEvent.MOUSE_MOTION_EVENT_MASK
-                        | AWTEvent.MOUSE_WHEEL_EVENT_MASK
-                        | AWTEvent.KEY_EVENT_MASK
+        JTable table = new JTable(tableModel);
+
+        table.setBackground(PANEL);
+        table.setForeground(TEXT);
+
+        table.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
         );
 
-        resetInactivityTimer();
+        table.setRowHeight(36);
+        table.setShowGrid(false);
+        table.setIntercellSpacing(
+                new Dimension(0, 0)
+        );
 
-        addWindowListener(new java.awt.event.WindowAdapter() {
+        table.setSelectionBackground(
+                new Color(55, 55, 62)
+        );
 
-            @Override
-            public void windowClosing(java.awt.event.WindowEvent e) {
-                lockVault();
-            }
+        table.setSelectionForeground(TEXT);
+        table.setFillsViewportHeight(true);
 
-            @Override
-            public void windowClosed(java.awt.event.WindowEvent e) {
-                inactivityTimer.stop();
+        table.getTableHeader().setBackground(
+                new Color(40, 40, 45)
+        );
 
-                Toolkit.getDefaultToolkit()
-                        .removeAWTEventListener(activityListener);
-            }
-        });
+        table.getTableHeader().setForeground(MUTED);
+
+        table.getTableHeader().setFont(
+                new Font("Segoe UI", Font.BOLD, 12)
+        );
+
+        table.getTableHeader().setPreferredSize(
+                new Dimension(0, 36)
+        );
+
+        JScrollPane tableScroll = new JScrollPane(table);
+
+        tableScroll.setBorder(
+                BorderFactory.createLineBorder(
+                        new Color(55, 55, 60)
+                )
+        );
+
+        tableScroll.getViewport().setBackground(PANEL);
+
+        tablePanel.add(tableTitle, BorderLayout.NORTH);
+        tablePanel.add(tableScroll, BorderLayout.CENTER);
+
+        // RECOMMENDATIONS
+        JPanel recommendationPanel = createCard();
+
+        recommendationPanel.setLayout(
+                new BorderLayout(0, 10)
+        );
+
+        recommendationPanel.setBorder(
+                new EmptyBorder(18, 18, 18, 18)
+        );
+
+        JLabel recommendationTitle = new JLabel(
+                "Security Recommendations"
+        );
+
+        recommendationTitle.setFont(
+                new Font("Segoe UI", Font.BOLD, 15)
+        );
+
+        recommendationTitle.setForeground(TEXT);
+
+        recommendationsArea = new JTextArea();
+
+        recommendationsArea.setEditable(false);
+        recommendationsArea.setLineWrap(true);
+        recommendationsArea.setWrapStyleWord(true);
+
+        recommendationsArea.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
+        );
+
+        recommendationsArea.setBackground(PANEL);
+        recommendationsArea.setForeground(MUTED);
+
+        recommendationsArea.setBorder(
+                new EmptyBorder(8, 5, 8, 5)
+        );
+
+        JScrollPane recommendationScroll =
+                new JScrollPane(recommendationsArea);
+
+        recommendationScroll.setBorder(null);
+
+        recommendationScroll.setPreferredSize(
+                new Dimension(0, 100)
+        );
+
+        recommendationPanel.add(
+                recommendationTitle,
+                BorderLayout.NORTH
+        );
+
+        recommendationPanel.add(
+                recommendationScroll,
+                BorderLayout.CENTER
+        );
+
+        // MAIN CONTENT
+        JPanel mainContent = new JPanel(
+                new BorderLayout(0, 18)
+        );
+
+        mainContent.setOpaque(false);
+
+        JPanel centerContent = new JPanel(
+                new BorderLayout(0, 18)
+        );
+
+        centerContent.setOpaque(false);
+
+        centerContent.add(
+                statistics,
+                BorderLayout.NORTH
+        );
+
+        centerContent.add(
+                tablePanel,
+                BorderLayout.CENTER
+        );
+
+        centerContent.add(
+                recommendationPanel,
+                BorderLayout.SOUTH
+        );
+
+        mainContent.add(
+                scorePanel,
+                BorderLayout.NORTH
+        );
+
+        mainContent.add(
+                centerContent,
+                BorderLayout.CENTER
+        );
+
+        add(header, BorderLayout.NORTH);
+        add(mainContent, BorderLayout.CENTER);
+
+        showEmptyState();
     }
 
-    // =========================================================
-    // INITIALIZE PANELS
-    // =========================================================
-
-    private void initializePanels() {
-
-        dashboardPanel = new DashboardPanel(database, secretKey);
-
-        vaultPanel = new VaultPanel(database, secretKey);
-
-        generatorPanel = new GeneratorPanel();
-
-        securityPanel = new SecurityPanel(database, secretKey);
-
-        categoriesPanel = new CategoriesPanel(database, secretKey);
-
-        historyPanel = new HistoryPanel(database);
-
-        settingsPanel = new SettingsPanel(
-                database,
-                lockAction,
-                this::setAutoLockMinutes
-        );
-
-        passwordHealthPanel = new PasswordHealthPanel(
-                database,
-                secretKey
-        );
-
-        secureNotesPanel = new SecureNotesPanel(
-                database,
-                secretKey
-        );
-
-        recycleBinPanel = new RecycleBinPanel(
-                database,
-                secretKey
-        );
-
-        contentPanel.add(dashboardPanel, "Dashboard");
-
-        contentPanel.add(vaultPanel, "Vault");
-
-        contentPanel.add(generatorPanel, "Generator");
-
-        contentPanel.add(securityPanel, "Security");
-
-        contentPanel.add(categoriesPanel, "Categories");
-
-        contentPanel.add(historyPanel, "History");
-
-        contentPanel.add(settingsPanel, "Settings");
-
-        contentPanel.add(passwordHealthPanel, "Password Health");
-
-        contentPanel.add(secureNotesPanel, "Secure Notes");
-
-        contentPanel.add(recycleBinPanel, "Recycle Bin");
-    }
-
-    // =========================================================
-    // SIDEBAR
-    // =========================================================
-
-    private void createSidebar() {
-
-        JPanel sidebar = new JPanel();
-
-        sidebar.setPreferredSize(new Dimension(220, 0));
-        sidebar.setBackground(Theme.PANEL);
-
-        sidebar.setLayout(new BoxLayout(
-                sidebar,
-                BoxLayout.Y_AXIS
-        ));
-
-        sidebar.setBorder(BorderFactory.createEmptyBorder(
-                25, 15, 20, 15
-        ));
-
-        JLabel logo = new JLabel("SECUREVAULT");
-
-        logo.setFont(new Font(
-                "Segoe UI",
-                Font.BOLD,
-                21
-        ));
-
-        logo.setForeground(Theme.LIGHT);
-        logo.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel subtitle = new JLabel("Password Manager");
-
-        subtitle.setFont(new Font(
-                "Segoe UI",
-                Font.PLAIN,
-                11
-        ));
-
-        subtitle.setForeground(Theme.MUTED);
-        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        sidebar.add(logo);
-        sidebar.add(Box.createVerticalStrut(5));
-        sidebar.add(subtitle);
-        sidebar.add(Box.createVerticalStrut(35));
-
-        String[] pages = {
-                "Dashboard",
-                "Vault",
-                "Recycle Bin",
-                "Generator",
-                "Password Health",
-                "Secure Notes",
-                "Security",
-                "Categories",
-                "History",
-                "Settings"
-        };
-
-        for (String page : pages) {
-
-            JButton button = Theme.button(page);
-
-            button.setHorizontalAlignment(
-                    SwingConstants.LEFT
-            );
-
-            button.setMaximumSize(
-                    new Dimension(Integer.MAX_VALUE, 42)
-            );
-
-            button.setAlignmentX(
-                    Component.LEFT_ALIGNMENT
-            );
-
-            button.addActionListener(e -> showPage(page));
-
-            sidebar.add(button);
-            sidebar.add(Box.createVerticalStrut(8));
-        }
-
-        sidebar.add(Box.createVerticalGlue());
-
-        JLabel status = new JLabel("● Vault Unlocked");
-
-        status.setForeground(
-                new Color(90, 190, 130)
-        );
-
-        status.setFont(new Font(
-                "Segoe UI",
-                Font.PLAIN,
-                12
-        ));
-
-        status.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        sidebar.add(status);
-
-        JScrollPane sidebarScroll = new JScrollPane(sidebar);
-
-        sidebarScroll.setPreferredSize(new Dimension(235, 0));
-        sidebarScroll.setBorder(null);
-        sidebarScroll.setHorizontalScrollBarPolicy(
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-        );
-        sidebarScroll.getViewport().setBackground(Theme.PANEL);
-        sidebarScroll.getVerticalScrollBar().setUnitIncrement(16);
-
-        add(sidebarScroll, BorderLayout.WEST);
-    }
-
-    // =========================================================
-    // PAGE NAVIGATION
-    // =========================================================
-
-    private void showPage(String page) {
-
-        cardLayout.show(contentPanel, page);
-
-        switch (page) {
-
-            case "Dashboard" ->
-                    dashboardPanel.refresh();
-
-            case "Vault" ->
-                    vaultPanel.refresh();
-
-            case "Security" ->
-                    securityPanel.refresh();
-
-            case "Categories" ->
-                    categoriesPanel.refresh();
-
-            case "History" ->
-                    historyPanel.refresh();
-
-            case "Password Health" ->
-                    passwordHealthPanel.refresh();
-
-            case "Secure Notes" ->
-                    secureNotesPanel.refresh();
-
-            case "Recycle Bin" ->
-                    recycleBinPanel.refresh();
-        }
-    }
-
-    // =========================================================
-    // INACTIVITY DETECTION
-    // =========================================================
-
-    private boolean belongsToVault(Object source) {
-
-        if (!(source instanceof Component component)) {
-            return false;
-        }
-
-        Window window = component instanceof Window
-                ? (Window) component
-                : SwingUtilities.getWindowAncestor(component);
-
-        while (window != null) {
-
-            if (window == this) {
-                return true;
-            }
-
-            window = window.getOwner();
-        }
-
-        return false;
-    }
-
-    private void resetInactivityTimer() {
-
-        if (locked || inactivityTimer == null) {
-            return;
-        }
-
-        if (autoLockMinutes <= 0) {
-            inactivityTimer.stop();
-            return;
-        }
-
-        inactivityTimer.setInitialDelay(
-                autoLockMinutes * 60 * 1000
-        );
-
-        inactivityTimer.restart();
-    }
-
-    private void setAutoLockMinutes(int minutes) {
-
-        if (minutes < 0) {
-            return;
-        }
-
-        autoLockMinutes = minutes;
-
-        if (locked || inactivityTimer == null) {
-            return;
-        }
-
-        inactivityTimer.stop();
-
-        if (autoLockMinutes > 0) {
-
-            inactivityTimer.setInitialDelay(
-                    autoLockMinutes * 60 * 1000
-            );
-
-            inactivityTimer.restart();
-        }
-    }
-
-    // =========================================================
-    // MANUAL LOCK
-    // =========================================================
-
-    private void lockVault() {
-
-        if (locked) {
-            return;
-        }
-
-        int choice = JOptionPane.showConfirmDialog(
-                this,
-                "Lock SecureVault and return to the login screen?",
-                "Lock Vault",
-                JOptionPane.YES_NO_OPTION
-        );
-
-        if (choice == JOptionPane.YES_OPTION) {
-            closeAndLock();
-        }
-    }
-
-    // =========================================================
-    // AUTOMATIC LOCK
-    // =========================================================
-
-    private void lockVaultAutomatically() {
-
-        if (locked) {
-            return;
-        }
-
-        JOptionPane.showMessageDialog(
-                this,
-                "SecureVault has been locked due to inactivity.\n"
-                        + "Enter your master password to continue.",
-                "Automatic Vault Lock",
-                JOptionPane.INFORMATION_MESSAGE
-        );
-
-        closeAndLock();
-    }
-
-    // =========================================================
-    // CLOSE AND RETURN TO LOGIN
-    // =========================================================
-
-    private void closeAndLock() {
-
-        if (locked) {
-            return;
-        }
-
-        locked = true;
-
-        inactivityTimer.stop();
-
-        Toolkit.getDefaultToolkit()
-                .removeAWTEventListener(activityListener);
+    // =====================================================
+    // REFRESH PASSWORD HEALTH
+    // =====================================================
+
+    public void refresh() {
 
         try {
-            database.close();
-        } catch (Exception ignored) {
+
+            List<VaultEntry> entries =
+                    database.entries(secretKey);
+
+            HealthReport report =
+                    PasswordHealthChecker.analyze(entries);
+
+            updateDashboard(report);
+
+        } catch (Exception e) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Unable to analyze password health.\n"
+                            + e.getMessage(),
+                    "Password Health Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    // =====================================================
+    // UPDATE DASHBOARD
+    // =====================================================
+
+    private void updateDashboard(HealthReport report) {
+
+        int score = report.securityScore();
+
+        scoreLabel.setText(score + "/100");
+        scoreBar.setValue(score);
+
+        if (score >= 80) {
+
+            scoreLabel.setForeground(GREEN);
+            scoreBar.setForeground(GREEN);
+
+            scoreDescription.setText(
+                    "Your vault is looking secure."
+            );
+
+        } else if (score >= 50) {
+
+            scoreLabel.setForeground(YELLOW);
+            scoreBar.setForeground(YELLOW);
+
+            scoreDescription.setText(
+                    "Some passwords need improvement."
+            );
+
+        } else {
+
+            scoreLabel.setForeground(RED);
+            scoreBar.setForeground(RED);
+
+            scoreDescription.setText(
+                    "Your vault needs security improvements."
+            );
         }
 
-        dispose();
+        totalLabel.setText(
+                String.valueOf(report.totalPasswords())
+        );
 
-        lockAction.run();
+        strongLabel.setText(
+                String.valueOf(report.strongPasswords())
+        );
+
+        mediumLabel.setText(
+                String.valueOf(report.mediumPasswords())
+        );
+
+        weakLabel.setText(
+                String.valueOf(report.weakPasswords())
+        );
+
+        reusedLabel.setText(
+                String.valueOf(report.reusedPasswords())
+        );
+
+        commonLabel.setText(
+                String.valueOf(report.commonPasswords())
+        );
+
+        tableModel.setRowCount(0);
+
+        for (PasswordResult result : report.results()) {
+
+            String issues = result.issues().isEmpty()
+                    ? "No issues detected"
+                    : String.join(", ", result.issues());
+
+            tableModel.addRow(new Object[]{
+                    result.title(),
+                    result.score() + "/100",
+                    result.strength(),
+                    issues
+            });
+        }
+
+        StringBuilder recommendations =
+                new StringBuilder();
+
+        for (String recommendation :
+                report.recommendations()) {
+
+            recommendations
+                    .append("• ")
+                    .append(recommendation)
+                    .append("\n\n");
+        }
+
+        recommendationsArea.setText(
+                recommendations.toString()
+        );
+
+        recommendationsArea.setCaretPosition(0);
+    }
+
+    // =====================================================
+    // EMPTY STATE
+    // =====================================================
+
+    private void showEmptyState() {
+
+        scoreLabel.setText("0/100");
+
+        scoreDescription.setText(
+                "Add credentials to analyze your vault."
+        );
+
+        scoreBar.setValue(0);
+
+        totalLabel.setText("0");
+        strongLabel.setText("0");
+        mediumLabel.setText("0");
+        weakLabel.setText("0");
+        reusedLabel.setText("0");
+        commonLabel.setText("0");
+
+        tableModel.setRowCount(0);
+
+        recommendationsArea.setText(
+                "Your security recommendations will appear here."
+        );
+    }
+
+    // =====================================================
+    // STATISTICS CARD
+    // =====================================================
+
+    private JLabel addStat(
+            JPanel parent,
+            String title,
+            Color accent
+    ) {
+
+        JPanel card = createCard();
+
+        card.setLayout(
+                new BoxLayout(card, BoxLayout.Y_AXIS)
+        );
+
+        card.setBorder(
+                new EmptyBorder(14, 16, 14, 16)
+        );
+
+        JLabel titleLabel = new JLabel(title);
+
+        titleLabel.setFont(
+                new Font("Segoe UI", Font.PLAIN, 12)
+        );
+
+        titleLabel.setForeground(MUTED);
+
+        JLabel valueLabel = new JLabel("0");
+
+        valueLabel.setFont(
+                new Font("Segoe UI", Font.BOLD, 25)
+        );
+
+        valueLabel.setForeground(accent);
+
+        card.add(titleLabel);
+        card.add(Box.createVerticalStrut(8));
+        card.add(valueLabel);
+
+        parent.add(card);
+
+        return valueLabel;
+    }
+
+    // =====================================================
+    // PANEL STYLE
+    // =====================================================
+
+    private JPanel createCard() {
+
+        JPanel panel = new JPanel();
+
+        panel.setBackground(PANEL);
+
+        panel.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(
+                                new Color(52, 52, 57)
+                        ),
+                        new EmptyBorder(5, 5, 5, 5)
+                )
+        );
+
+        return panel;
+    }
+
+    // =====================================================
+    // BUTTON STYLE
+    // =====================================================
+
+    private JButton createButton(
+            String text,
+            Color background
+    ) {
+
+        JButton button = new JButton(text);
+
+        button.setFont(
+                new Font("Segoe UI", Font.BOLD, 12)
+        );
+
+        button.setForeground(Color.WHITE);
+        button.setBackground(background);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+
+        button.setCursor(
+                Cursor.getPredefinedCursor(
+                        Cursor.HAND_CURSOR
+                )
+        );
+
+        button.setBorder(
+                new EmptyBorder(10, 16, 10, 16)
+        );
+
+        return button;
     }
 }
