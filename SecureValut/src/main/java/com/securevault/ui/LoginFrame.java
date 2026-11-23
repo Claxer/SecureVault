@@ -11,13 +11,24 @@ import java.util.function.BiConsumer;
 
 public class LoginFrame extends JFrame {
 
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final long LOCKOUT_DURATION =
+            5 * 60 * 1000L;
+
     private final Database database;
     private final BiConsumer<Database, SecretKey> successAction;
 
-    private final JPasswordField passwordField = new JPasswordField(22);
-    private final JPasswordField confirmField = new JPasswordField(22);
+    private final JPasswordField passwordField =
+            new JPasswordField(22);
+
+    private final JPasswordField confirmField =
+            new JPasswordField(22);
 
     private final JLabel messageLabel = new JLabel(" ");
+
+    private JButton actionButton;
+    private Timer lockoutTimer;
+    private long activeLockoutUntil;
 
     public LoginFrame(
             Database database,
@@ -34,6 +45,8 @@ public class LoginFrame extends JFrame {
         setResizable(false);
 
         buildUI();
+        checkExistingLockout();
+
         setVisible(true);
     }
 
@@ -46,9 +59,14 @@ public class LoginFrame extends JFrame {
         root.setBorder(new EmptyBorder(30, 35, 30, 35));
 
         JPanel content = new JPanel();
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setLayout(new BoxLayout(
+                content,
+                BoxLayout.Y_AXIS
+        ));
         content.setBackground(Theme.PANEL);
-        content.setBorder(new EmptyBorder(28, 25, 28, 25));
+        content.setBorder(new EmptyBorder(
+                28, 25, 28, 25
+        ));
 
         JLabel title = Theme.heading("SecureVault");
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -70,18 +88,22 @@ public class LoginFrame extends JFrame {
         addField(content, "Master Password", passwordField);
 
         if (firstSetup) {
-            addField(content, "Confirm Master Password", confirmField);
+            addField(
+                    content,
+                    "Confirm Master Password",
+                    confirmField
+            );
         }
 
         content.add(Box.createVerticalStrut(12));
 
         messageLabel.setForeground(Theme.DANGER);
         messageLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        content.add(messageLabel);
 
+        content.add(messageLabel);
         content.add(Box.createVerticalStrut(12));
 
-        JButton actionButton = Theme.button(
+        actionButton = Theme.button(
                 firstSetup ? "Create Vault" : "Unlock Vault"
         );
 
@@ -92,10 +114,17 @@ public class LoginFrame extends JFrame {
                 new Dimension(Integer.MAX_VALUE, 42)
         );
 
-        actionButton.addActionListener(e -> authenticate(firstSetup));
+        actionButton.addActionListener(
+                e -> authenticate(firstSetup)
+        );
 
-        passwordField.addActionListener(e -> authenticate(firstSetup));
-        confirmField.addActionListener(e -> authenticate(firstSetup));
+        passwordField.addActionListener(
+                e -> authenticate(firstSetup)
+        );
+
+        confirmField.addActionListener(
+                e -> authenticate(firstSetup)
+        );
 
         content.add(actionButton);
 
@@ -125,7 +154,19 @@ public class LoginFrame extends JFrame {
         panel.add(Box.createVerticalStrut(16));
     }
 
+    // =====================================================
+    // AUTHENTICATION
+    // =====================================================
+
     private void authenticate(boolean firstSetup) {
+
+        if (!firstSetup
+                && database.getLoginLockoutUntil()
+                > System.currentTimeMillis()) {
+
+            checkExistingLockout();
+            return;
+        }
 
         char[] password = passwordField.getPassword();
         char[] confirmation = confirmField.getPassword();
@@ -133,7 +174,9 @@ public class LoginFrame extends JFrame {
         try {
 
             if (password.length == 0) {
-                messageLabel.setText("Enter your master password.");
+                messageLabel.setText(
+                        "Enter your master password."
+                );
                 return;
             }
 
@@ -158,15 +201,24 @@ public class LoginFrame extends JFrame {
                 key = database.initializeMasterPassword(password);
 
             } else {
+
                 key = database.unlockMasterPassword(password);
+
+                // Successful authentication resets failed attempts.
+                database.resetLoginFailures();
+            }
+
+            if (lockoutTimer != null) {
+                lockoutTimer.stop();
             }
 
             dispose();
+
             successAction.accept(database, key);
 
         } catch (SecurityException e) {
 
-            messageLabel.setText("Incorrect master password.");
+            handleFailedLogin();
 
         } catch (Exception e) {
 
@@ -184,5 +236,121 @@ public class LoginFrame extends JFrame {
             passwordField.setText("");
             confirmField.setText("");
         }
+    }
+
+    // =====================================================
+    // FAILED LOGIN PROTECTION
+    // =====================================================
+
+    private void handleFailedLogin() {
+
+        int attempts = database.recordFailedLoginAttempt(
+                MAX_FAILED_ATTEMPTS,
+                LOCKOUT_DURATION
+        );
+
+        int remaining = MAX_FAILED_ATTEMPTS - attempts;
+
+        if (attempts >= MAX_FAILED_ATTEMPTS) {
+
+            checkExistingLockout();
+
+        } else {
+
+            messageLabel.setText(
+                    "Incorrect password. "
+                            + remaining
+                            + " attempt(s) remaining."
+            );
+        }
+    }
+
+    // =====================================================
+    // LOCKOUT COUNTDOWN
+    // =====================================================
+
+    private void checkExistingLockout() {
+
+        long lockoutUntil = database.getLoginLockoutUntil();
+
+        if (lockoutUntil <= System.currentTimeMillis()) {
+
+            enableLogin();
+            return;
+        }
+
+        activeLockoutUntil = lockoutUntil;
+
+        passwordField.setEnabled(false);
+        confirmField.setEnabled(false);
+        actionButton.setEnabled(false);
+
+        updateLockoutMessage();
+
+        if (lockoutTimer != null) {
+            lockoutTimer.stop();
+        }
+
+        lockoutTimer = new Timer(1000, event -> {
+
+            if (System.currentTimeMillis()
+                    >= activeLockoutUntil) {
+
+                lockoutTimer.stop();
+
+                database.resetLoginFailures();
+
+                enableLogin();
+
+            } else {
+
+                updateLockoutMessage();
+            }
+        });
+
+        lockoutTimer.start();
+    }
+
+    private void updateLockoutMessage() {
+
+        long remainingMillis =
+                activeLockoutUntil - System.currentTimeMillis();
+
+        long remainingSeconds =
+                Math.max(0, (remainingMillis + 999) / 1000);
+
+        long minutes = remainingSeconds / 60;
+        long seconds = remainingSeconds % 60;
+
+        messageLabel.setText(
+                "Too many failed attempts. Try again in "
+                        + String.format("%02d:%02d", minutes, seconds)
+                        + "."
+        );
+    }
+
+    private void enableLogin() {
+
+        passwordField.setEnabled(true);
+        confirmField.setEnabled(true);
+        actionButton.setEnabled(true);
+
+        messageLabel.setText(" ");
+        activeLockoutUntil = 0;
+
+        passwordField.requestFocusInWindow();
+    }
+
+    @Override
+    public void dispose() {
+
+        if (lockoutTimer != null) {
+            lockoutTimer.stop();
+        }
+
+        passwordField.setText("");
+        confirmField.setText("");
+
+        super.dispose();
     }
 }
