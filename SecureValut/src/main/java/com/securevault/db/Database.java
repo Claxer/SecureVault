@@ -118,6 +118,20 @@ public class Database {
                     pinned INTEGER NOT NULL DEFAULT 0
                 )
             """);
+
+            statement.execute("""
+                CREATE TABLE IF NOT EXISTS login_security (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    failed_attempts INTEGER NOT NULL DEFAULT 0,
+                    lockout_until INTEGER NOT NULL DEFAULT 0
+                )
+            """);
+
+            statement.execute("""
+                INSERT OR IGNORE INTO login_security
+                    (id, failed_attempts, lockout_until)
+                VALUES (1, 0, 0)
+            """);
         }
     }
 
@@ -297,6 +311,139 @@ public class Database {
             } finally {
                 Arrays.fill(salt, (byte) 0);
             }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    // =========================================================
+    // LOGIN SECURITY
+    // =========================================================
+
+    /**
+     * Records one failed master-password attempt. When the configured
+     * maximum is reached, a lockout expiry timestamp is saved in SQLite.
+     * The state survives application restarts.
+     *
+     * @return the current number of failed attempts
+     */
+    public synchronized int recordFailedLoginAttempt(
+            int maximumAttempts,
+            long lockoutDurationMillis
+    ) {
+        if (maximumAttempts < 1 || lockoutDurationMillis < 1) {
+            throw new IllegalArgumentException(
+                    "Invalid login protection settings."
+            );
+        }
+
+        long now = System.currentTimeMillis();
+        long existingLockout = getLoginLockoutUntil();
+
+        if (existingLockout > now) {
+            return maximumAttempts;
+        }
+
+        int attempts = 0;
+
+        String selectSQL = """
+            SELECT failed_attempts
+            FROM login_security
+            WHERE id = 1
+        """;
+
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(selectSQL)) {
+
+            if (result.next()) {
+                attempts = result.getInt("failed_attempts");
+            }
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+
+        attempts++;
+
+        long lockoutUntil = 0;
+
+        if (attempts >= maximumAttempts) {
+            long duration = lockoutDurationMillis;
+
+            lockoutUntil = now > Long.MAX_VALUE - duration
+                    ? Long.MAX_VALUE
+                    : now + duration;
+        }
+
+        String updateSQL = """
+            UPDATE login_security
+            SET failed_attempts = ?,
+                lockout_until = ?
+            WHERE id = 1
+        """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(updateSQL)) {
+
+            statement.setInt(1, attempts);
+            statement.setLong(2, lockoutUntil);
+            statement.executeUpdate();
+
+            return attempts;
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /**
+     * Returns the lockout expiry time in epoch milliseconds, or zero
+     * when the account is not currently locked out. Expired lockouts
+     * automatically reset the failed-attempt counter.
+     */
+    public synchronized long getLoginLockoutUntil() {
+
+        String sql = """
+            SELECT lockout_until
+            FROM login_security
+            WHERE id = 1
+        """;
+
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(sql)) {
+
+            if (!result.next()) {
+                return 0;
+            }
+
+            long lockoutUntil = result.getLong("lockout_until");
+
+            if (lockoutUntil > 0
+                    && lockoutUntil <= System.currentTimeMillis()) {
+                resetLoginFailures();
+                return 0;
+            }
+
+            return lockoutUntil;
+
+        } catch (SQLException e) {
+            throw databaseError(e);
+        }
+    }
+
+    /** Resets the failed-login counter and any active lockout. */
+    public synchronized void resetLoginFailures() {
+
+        String sql = """
+            UPDATE login_security
+            SET failed_attempts = 0,
+                lockout_until = 0
+            WHERE id = 1
+        """;
+
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(sql);
 
         } catch (SQLException e) {
             throw databaseError(e);
